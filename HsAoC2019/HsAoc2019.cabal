@@ -29,6 +29,7 @@ library
       GraphMaker
       GraphUtils
       InputDownloader
+      IntCode
       Lib
       N1
       Useful
