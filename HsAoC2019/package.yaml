@@ -1,0 +1,92 @@
+name:                HsAoc2019
+version:             0.1.0.0
+github:              "githubuser/HsAoc2019"
+license:             BSD-3-Clause
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2024 Author name here"
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/Aoc2024#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- text
+- containers
+- array
+- MemoTrie
+- memoize
+- parallel
+- bytestring
+- transformers
+- heap
+- fgl
+- graphviz
+- timeit
+- vector
+- random
+- megaparsec
+- monad-logger
+- exceptions
+- http-conduit
+- directory
+- hmatrix
+- Chart-diagrams
+- gnuplot 
+# - regex-pcre-builtin
+
+default-extensions:
+- OverloadedStrings
+- ScopedTypeVariables
+- LambdaCase
+- ViewPatterns
+- MultiWayIf
+
+ghc-options:
+- -O2
+- -fprof-late
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+- -threaded
+- -O2
+library:
+  source-dirs: src
+
+executables:
+  aoc24-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -O2
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - HsAoc2019
+tests:
+  HsAoc2019-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - HsAoc2019
