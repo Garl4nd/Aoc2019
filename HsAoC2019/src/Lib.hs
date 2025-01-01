@@ -1,9 +1,12 @@
-module Lib
-    ( maybeSolver
-    ) where
+module Lib (
+  maybeSolver,
+) where
+
+import N1
+
 maybeSolver :: Int -> Maybe (String -> IO (Int, Int))
 maybeSolver day = case day of
-  1 -> Nothing -- Just getSolutions1
+  1 -> Just getSolutions1
   -- 2 -> Just getSolutions2
   -- 3 -> Just getSolutions3
   -- 4 -> Just getSolutions4

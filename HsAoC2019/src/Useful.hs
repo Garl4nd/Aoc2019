@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Useful (
+  getSolutions,
   wordsWhen,
   splitOn,
   readStrList,
@@ -26,6 +27,8 @@ module Useful (
   GridPos,
 ) where
 
+import Control.Arrow
+import Control.Monad ((>=>))
 import qualified Data.Array.Unboxed as A
 import Data.Function (on)
 import Data.List (findIndex, groupBy, intercalate, isPrefixOf, sortOn, tails)
@@ -134,3 +137,6 @@ appendGridToFile filename charGrid =
     content = intercalate "\n" $ charGridToStr charGrid
    in
     appendFile filename content
+
+getSolutions :: (String -> a) -> (a -> b) -> (a -> b) -> (String -> IO (b, b))
+getSolutions parser solution1 solution2 = readFile >=> (parser >>> (solution1 &&& solution2) >>> return)

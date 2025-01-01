@@ -1,2 +1,6 @@
 .stack-work/
 *~
+inputs/*
+!inputs/gitkeep
+outputs/*
+!outpus/gitkeep

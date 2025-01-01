@@ -30,6 +30,7 @@ library
       GraphUtils
       InputDownloader
       Lib
+      N1
       Useful
   other-modules:
       Paths_HsAoc2019
