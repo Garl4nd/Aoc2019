@@ -43,6 +43,7 @@ dependencies:
 - hmatrix
 - Chart-diagrams
 - gnuplot 
+- ref-fd
 # - regex-pcre-builtin
 
 default-extensions:

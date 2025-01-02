@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Debugging
+      ExperimentalIntCode2
       GraphMaker
       GraphUtils
       InputDownloader
@@ -33,6 +34,7 @@ library
       Lib
       N1
       N2
+      N3
       Useful
   other-modules:
       Paths_HsAoc2019
@@ -67,6 +69,7 @@ library
     , monad-logger
     , parallel
     , random
+    , ref-fd
     , text
     , timeit
     , transformers
@@ -109,6 +112,7 @@ executable aoc24-exe
     , monad-logger
     , parallel
     , random
+    , ref-fd
     , text
     , timeit
     , transformers
@@ -152,6 +156,7 @@ test-suite HsAoc2019-test
     , monad-logger
     , parallel
     , random
+    , ref-fd
     , text
     , timeit
     , transformers
