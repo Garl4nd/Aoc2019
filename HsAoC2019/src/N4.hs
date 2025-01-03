@@ -63,7 +63,7 @@ genNums1F places fixedPlace = go 1 9
     | otherwise = [val + 10 * rest | val <- [1 .. currentMax], rest <- go (currentPlace + 1) val]
 
 genNums2F :: Int -> Int -> [Int]
-genNums2F places fixedPlace = if places == 0 then [] else go 1 9
+genNums2F places fixedPlace = go 1 9
  where
   go :: Int -> Int -> [Int]
   go currentPlace currentMax

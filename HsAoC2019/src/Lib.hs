@@ -5,13 +5,14 @@ module Lib (
 import N1
 import N2
 import N3
+import N4
 
 maybeSolver :: Int -> Maybe (String -> IO (Int, Int))
 maybeSolver day = case day of
   1 -> Just getSolutions1
   2 -> Just getSolutions2
   3 -> Just getSolutions3
-  -- 4 -> Just getSolutions4
+  4 -> Just getSolutions4
   -- 5 -> Just getSolutions5
   -- 6 -> Just getSolutions6
   -- 7 -> Just getSolutions7
