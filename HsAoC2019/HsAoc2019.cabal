@@ -35,6 +35,7 @@ library
       N1
       N2
       N3
+      N4
       Useful
   other-modules:
       Paths_HsAoc2019
