@@ -12,7 +12,51 @@ use std::{collections::HashSet, fs::read_to_string};
 //     | currentPlace == fixedPlace = [11 * n + 100 * rest | n <- [1 .. currentMax], rest <- go (currentPlace + 2) n]
 //     | otherwise = [val + 10 * rest | val <- [1 .. currentMax], rest <- go (currentPlace + 1) val]
 //
-//
+fn get_nums1_stack(places: i32, fixed_place: i32) -> Vec<i32> {
+    let mut nums_and_mins: Vec<(i32, i32)> = vec![(0, 1)];
+    // for currentPlace in 1..=places {
+    let mut current_place = 1;
+    let mut max = 9;
+    let mut stack : Vec<(i32, i32, i32, Vec<i32>)> = vec![(1, 1,9, Vec::new())];
+    let mut res : Option(Vec<i32>) = None ;//Vec::new();
+    while !stack.is_empty(){
+        if current_place == places{
+             res = Some((1..max).collect());
+             current_place -= 1;
+        }
+        else 
+    {
+        
+            
+        if let Some(resVec) = res    
+        {
+            let (current_place_, val, max_, mut current_list) = stack.pop().unwrap();   
+                current_list.extend(resVec.iter()); //push(val + 10 *r)
+                res = None ;
+             current_place = current_place_+1; 
+             max = val ; 
+    }
+        {
+            if val <= max_{
+             stack.push((current_place_, val+1, max, current_list));
+           }
+            else {
+                res_stack = current_list;
+            }
+                }
+    }
+    while current_place <= places {
+            nums_and_mins = nums_and_mins
+                .iter()
+                .flat_map(|(num, min)| (*min..=9).map(|num_| (10 * (*num) + num_, num_)))
+                .collect();
+            current_place += 1;
+        };
+    
+
+    nums_and_mins.iter().map(|(n, _)| *n).collect()
+}
+
 fn get_nums1_f(places: i32, fixed_place: i32) -> Vec<i32> {
     let mut nums_and_mins: Vec<(i32, i32)> = vec![(0, 1)];
     // for currentPlace in 1..=places {
