@@ -9,7 +9,6 @@ import Lib
 import System.Directory (copyFile)
 import System.TimeIt (timeItNamed)
 import Text.Read (readMaybe)
-import Useful (splitOn)
 
 mainLoop :: IO ()
 mainLoop = do
