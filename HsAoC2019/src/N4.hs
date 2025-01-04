@@ -75,9 +75,6 @@ genNums2F places fixedPlace = go 1 9
       | currentPlace == fixedPlace = [11 * n + 100 * rest | n <- [1 .. if currentPlace == 1 then currentMax else currentMax - 1], rest <- go (currentPlace + 2) (n - 1)]
       | otherwise = [val + 10 * rest | val <- [1 .. currentMax], rest <- go (currentPlace + 1) val]
 
-f :: Int -> Int
-f = _
-
 genNums1 places = concat [genNums1F places fixed | fixed <- [1 .. places - 1]]
 
 genNums2 places = concat [genNums2F places fixed | fixed <- [1 .. places - 1]]
