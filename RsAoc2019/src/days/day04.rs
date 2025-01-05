@@ -124,17 +124,9 @@ fn get_nums2_f(places: i32, fixed_place: i32) -> Vec<i32> {
     nums_and_mins.iter().map(|(n, _)| *n).collect()
 }
 
-fn get_nums1(places: i32) -> Vec<i32> {
+fn get_nums(places: i32, single_fixed_func: impl Fn(i32, i32) -> Vec<i32>) -> Vec<i32> {
     (1..=(places - 1))
-        .flat_map(|fixed_place| get_nums1_f(places, fixed_place))
-        .filter(|n| (125730..579381).contains(n))
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect()
-}
-fn get_nums2(places: i32) -> Vec<i32> {
-    (1..=(places - 1))
-        .flat_map(|fixed_place| get_nums2_f(places, fixed_place))
+        .flat_map(|fixed_place| single_fixed_func(places, fixed_place))
         .filter(|n| (125730..579381).contains(n))
         .collect::<HashSet<_>>()
         .into_iter()
@@ -147,8 +139,8 @@ pub fn solve() -> SolutionPair {
     for i in 0..=10 {
         println!("fib {} = {} ", i, fib(i));
     }
-    let nums = get_nums1(6);
-    let nums2 = get_nums2(6);
+    let nums = get_nums(6, get_nums1_f);
+    let nums2 = get_nums(6, get_nums2_f);
     let sol1: u64 = nums.len() as u64;
     let sol2: u64 = nums2.len() as u64;
 
