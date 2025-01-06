@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module IntCode (insertCode, runCode, runCodeST, codeParser) where
+module IntCode (insertCode, runCode, runCodeST, runCodeWInput, codeParser) where
 
 import Control.Monad (forM_, unless, when)
 import Control.Monad.Ref
@@ -41,7 +41,6 @@ insertCodeAndInput code input = do
   outputs <- newRef []
   forM_ (zip code [0 ..]) $ \(val, pos) -> writeArray ar pos val
   return Machine{mCode = ar, ptrRef, inputs, outputs}
-
 addC, mulC, endC, inpC, outC, jumpTC, jumpFC, lessC, equalsC :: Int
 addC = 1
 mulC = 2
@@ -122,6 +121,7 @@ runMachine machineCalc = do
 
 runCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (a Int Int)
 runCode = fmap mCode . runMachine . insertCode
+
 runCodeWInput :: (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m (a Int Int)
 runCodeWInput = ((fmap mCode . runMachine) .) . insertCodeAndInput
 
