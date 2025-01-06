@@ -34,7 +34,7 @@ getDistanceMap graph = go 0
       Just edges -> M.unions (go (dist + 1) <$> edges)
 
 reverseGraph :: Graph -> Graph
-reverseGraph = M.foldrWithKey (\key edges accMap -> foldr (\val newMap -> M.insertWith (++) val [key] newMap) accMap edges) M.empty
+reverseGraph = M.foldrWithKey (\key edges accMap -> foldr (\val newMap -> M.insertWith (++) val [key]  newMap) (M.insertWith (++) key [] accMap) edges) M.empty
 
 loeb :: (Functor f) => f (f a -> a) -> f a
 loeb fs = go where go = fmap ($ go) fs
@@ -49,4 +49,4 @@ graphUpdates = M.mapWithKey updateFunc
     target : _ -> succ $ distMap M.! target
 
 getDistanceMap' :: Graph -> M.Map String Int
-getDistanceMap' graph = loeb (graphUpdates $ reverseGraph graph)
+getDistanceMap' graph = loeb (graphUpdates $ reverseGraph  graph)
