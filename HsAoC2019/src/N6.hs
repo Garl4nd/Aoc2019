@@ -41,9 +41,12 @@ loeb fs = go where go = fmap ($ go) fs
 
 type DistMap = M.Map String Int
 
-graphUpdates :: String -> Graph -> M.Map String (DistMap -> Int)
-graphUpdates terminal graph = M.map updateFunc graph
+graphUpdates :: Graph -> M.Map String (DistMap -> Int)
+graphUpdates = M.mapWithKey updateFunc
  where
-  updateFunc edges key
-    | key == terminal = 0
-    | otherwise = succ . head $ edges
+  updateFunc key edges distMap = case edges of
+    [] -> 0
+    target : _ -> succ $ distMap M.! target
+
+getDistanceMap' :: Graph -> M.Map String Int
+getDistanceMap' graph = loeb (graphUpdates $ reverseGraph graph)
