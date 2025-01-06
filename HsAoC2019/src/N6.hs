@@ -39,7 +39,9 @@ reverseGraph = M.foldrWithKey (\key edges accMap -> foldr (\val newMap -> M.inse
 loeb :: (Functor f) => f (f a -> a) -> f a
 loeb fs = go where go = fmap ($ go) fs
 
-graphUpdates :: String ->  M.Map String ( -> Int)
+type DistMap = M.Map String Int
+
+graphUpdates :: String -> Graph -> M.Map String (DistMap -> Int)
 graphUpdates terminal graph = M.map updateFunc graph
  where
   updateFunc edges key
