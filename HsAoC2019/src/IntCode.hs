@@ -16,12 +16,13 @@ import Useful (splitOn)
 
 codeParser :: String -> [Int]
 codeParser = map read . splitOn ','
-
+data MachineState = Running | Halted | WaitingForInput deriving (Eq, Show)
 data Machine a r = Machine
   { mCode :: a Int Int
   , ptrRef :: r Int
   , inputs :: r [Int]
   , outputs :: r [Int]
+  , mState :: r MachineState
   }
 
 insertCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (Machine a r)
@@ -30,8 +31,9 @@ insertCode code = do
   ptrRef <- newRef 0
   inputs <- newRef []
   outputs <- newRef []
+  mState <- newRef Running
   forM_ (zip code [0 ..]) $ \(val, pos) -> writeArray ar pos val
-  return Machine{mCode = ar, ptrRef, inputs, outputs}
+  return Machine{mCode = ar, ptrRef, inputs, outputs, mState}
 
 insertCodeAndInput :: (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m (Machine a r)
 insertCodeAndInput code input = do
@@ -39,8 +41,10 @@ insertCodeAndInput code input = do
   ptrRef <- newRef 0
   inputs <- newRef input
   outputs <- newRef []
+  mState <- newRef Running
   forM_ (zip code [0 ..]) $ \(val, pos) -> writeArray ar pos val
-  return Machine{mCode = ar, ptrRef, inputs, outputs}
+  return Machine{mCode = ar, ptrRef, inputs, outputs, mState}
+
 addC, mulC, endC, inpC, outC, jumpTC, jumpFC, lessC, equalsC :: Int
 addC = 1
 mulC = 2
@@ -51,6 +55,7 @@ jumpFC = 6
 lessC = 7
 equalsC = 8
 endC = 99
+
 unaryOps, binaryOps, ternaryOps :: [Int]
 ternaryOps = [addC, mulC, lessC, equalsC]
 binaryOps = [jumpTC, jumpFC]
@@ -75,7 +80,7 @@ runMachine machineCalc = do
   execMachine machine
   return machine
  where
-  execMachine Machine{mCode, ptrRef, inputs, outputs} = loop
+  execMachine Machine{mCode, ptrRef, inputs, outputs, mState} = loop
    where
     loop = do
       ptr <- readRef ptrRef
@@ -90,35 +95,44 @@ runMachine machineCalc = do
             | n == jumpTC = (\p1 p2 -> if p1 /= 0 then p2 else ptr + 3)
             | n == jumpFC = (\p1 p2 -> if p1 == 0 then p2 else ptr + 3)
             | otherwise = error "Undefined operator"
-      unless (opCode == endC) $ do
-        let (mode1 : mode2 : _) = modes
-        when (opCode `elem` ternaryOps) $ do
-          inputPos1 <- readArray mCode (ptr + 1)
-          inputPos2 <- readArray mCode (ptr + 2)
-          outputPos <- readArray mCode (ptr + 3)
-          inputVal1 <- valGetter mode1 inputPos1
-          inputVal2 <- valGetter mode2 inputPos2
-          writeArray mCode outputPos (op opCode inputVal1 inputVal2)
-          writeRef ptrRef (ptr + 4)
-        when (opCode `elem` binaryOps) $ do
-          inputPos1 <- readArray mCode (ptr + 1)
-          inputPos2 <- readArray mCode (ptr + 2)
-          inputVal1 <- valGetter mode1 inputPos1
-          inputVal2 <- valGetter mode2 inputPos2
-          let newPos = op opCode inputVal1 inputVal2
-          writeRef ptrRef newPos
-        when (opCode `elem` unaryOps) $ do
-          targetPos <- readArray mCode (ptr + 1)
-          when (opCode == inpC) $ do
-            inputLs <- readRef inputs
-            writeArray mCode targetPos (head inputLs)
-            writeRef inputs $ drop 1 inputLs 
-          when (opCode == outC) $ do
-            outputLs <- readRef outputs
-            outputVal <- valGetter mode1 targetPos
-            writeRef outputs $ outputLs ++ [outputVal]
-          writeRef ptrRef (ptr + 2)
-        loop
+      if opCode == endC
+        then writeRef mState Halted
+        else do
+          let (mode1 : mode2 : _) = modes
+          if
+            | opCode `elem` ternaryOps -> do
+                inputPos1 <- readArray mCode (ptr + 1)
+                inputPos2 <- readArray mCode (ptr + 2)
+                outputPos <- readArray mCode (ptr + 3)
+                inputVal1 <- valGetter mode1 inputPos1
+                inputVal2 <- valGetter mode2 inputPos2
+                writeArray mCode outputPos (op opCode inputVal1 inputVal2)
+                writeRef ptrRef (ptr + 4)
+            | opCode `elem` binaryOps -> do
+                inputPos1 <- readArray mCode (ptr + 1)
+                inputPos2 <- readArray mCode (ptr + 2)
+                inputVal1 <- valGetter mode1 inputPos1
+                inputVal2 <- valGetter mode2 inputPos2
+                let newPos = op opCode inputVal1 inputVal2
+                writeRef ptrRef newPos
+            | opCode `elem` unaryOps -> do
+                targetPos <- readArray mCode (ptr + 1)
+                when (opCode == inpC) $ do
+                  inputLs <- readRef inputs
+                  case inputLs of
+                    [] -> writeRef mState WaitingForInput
+                    (currentInput : remainingInput) -> do
+                      writeArray mCode targetPos currentInput
+                      writeRef inputs remainingInput
+                      writeRef ptrRef (ptr + 2)
+                when (opCode == outC) $ do
+                  outputLs <- readRef outputs
+                  outputVal <- valGetter mode1 targetPos
+                  writeRef outputs $ outputLs ++ [outputVal]
+                  writeRef ptrRef (ptr + 2)
+            | otherwise -> return ()
+          state <- readRef mState
+          when (state == Running) loop
 
 runCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (a Int Int)
 runCode = fmap mCode . runMachine . insertCode

@@ -38,6 +38,7 @@ library
       N4
       N5
       N6
+      N7
       Useful
   other-modules:
       Paths_HsAoc2019
