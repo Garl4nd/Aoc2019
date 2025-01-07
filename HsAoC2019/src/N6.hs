@@ -9,6 +9,8 @@ import Data.Void (Void)
 import Text.Megaparsec (MonadParsec (takeWhile1P, takeWhileP), Parsec, endBy, runParser, sepBy, sepEndBy, some)
 import Text.Megaparsec.Char (alphaNumChar, char, letterChar, newline, string)
 import Text.Megaparsec.Debug
+import Data.List (unfoldr)
+import Useful (getSolutions)
 
 type SParser = Parsec Void String
 type Graph = M.Map String [String]
@@ -50,3 +52,19 @@ graphUpdates = M.mapWithKey updateFunc
 
 getDistanceMap' :: Graph -> M.Map String Int
 getDistanceMap' graph = loeb (graphUpdates $ reverseGraph  graph)
+
+getCommonAncestorLength :: String -> String -> Graph -> Int 
+getCommonAncestorLength node1 node2 graph = go node1 node2 where   
+  rGraph = reverseGraph graph
+  path  = unfoldr (\n -> (\case  {[] -> Nothing; (next:_) -> Just  (n, next)}) =<<  M.lookup n rGraph)
+  go n1 n2 = let 
+    path1 = zip [0..] $ path n1 
+    path2 = zip [0..] $ path n2 
+    commonNodeDists = [l1 + l2  | (l1, n1) <- path1, (l2, n2) <- path2, n1 == n2] 
+    in case commonNodeDists of 
+      firstDist:_ -> firstDist - 2  
+      _ -> 0 
+
+solution1 = sum .  getDistanceMap' 
+solution2 = getCommonAncestorLength "SAN" "YOU"
+getSolutions6 = getSolutions parseFile solution1 solution2 
