@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module IntCode (insertCode, runCode, runCodeST, runCodeWInput, codeParser) where
+module IntCode (insertCode, runCode, runCodeST, runCodeWInputST, codeParser) where
 
 import Control.Monad (forM_, unless, when)
 import Control.Monad.Ref
@@ -112,6 +112,7 @@ runMachine machineCalc = do
           when (opCode == inpC) $ do
             inputLs <- readRef inputs
             writeArray mCode targetPos (head inputLs)
+            writeRef inputs $ drop 1 inputLs 
           when (opCode == outC) $ do
             outputLs <- readRef outputs
             outputVal <- valGetter mode1 targetPos
