@@ -76,7 +76,8 @@ parseModesAndOpCode num =
 
 runMachine :: (MArray a Int m, MonadRef r m) => m (Machine a r) -> m (Machine a r)
 runMachine machineCalc = do
-  machine <- machineCalc
+  machine@Machine{mState} <- machineCalc
+  writeRef mState Running
   execMachine machine
   return machine
  where
