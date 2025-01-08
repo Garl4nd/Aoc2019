@@ -6,6 +6,9 @@ import N1
 import N2
 import N3
 import N4
+import N5
+import N6
+import N7
 
 maybeSolver :: Int -> Maybe (String -> IO (Int, Int))
 maybeSolver day = case day of
@@ -14,8 +17,8 @@ maybeSolver day = case day of
   3 -> Just getSolutions3
   4 -> Just getSolutions4
   -- 5 -> Just getSolutions5
-  -- 6 -> Just getSolutions6
-  -- 7 -> Just getSolutions7
+  6 -> Just getSolutions6
+  7 -> Just getSolutions7
   -- 8 -> Just getSolutions8 -- 9 -> Just $ getSolutions9 "inputs/9.txt"
   -- 9 -> Just getSolutions9 -- 9 -> Just $ getSolutions9 "inputs/9.txt"
   -- 10 -> Just getSolutions10

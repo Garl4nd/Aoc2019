@@ -1,15 +1,15 @@
-module N6 () where
+module N6 (getSolutions6) where
 
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.Char (isAlphaNum)
 import Data.Either (fromRight)
+import Data.List (unfoldr)
 import qualified Data.Map as M
 import Data.Void (Void)
 import Text.Megaparsec (MonadParsec (takeWhile1P, takeWhileP), Parsec, endBy, runParser, sepBy, sepEndBy, some)
 import Text.Megaparsec.Char (alphaNumChar, char, letterChar, newline, string)
 import Text.Megaparsec.Debug
-import Data.List (unfoldr)
 import Useful (getSolutions)
 
 type SParser = Parsec Void String
@@ -36,7 +36,7 @@ getDistanceMap graph = go 0
       Just edges -> M.unions (go (dist + 1) <$> edges)
 
 reverseGraph :: Graph -> Graph
-reverseGraph = M.foldrWithKey (\key edges accMap -> foldr (\val newMap -> M.insertWith (++) val [key]  newMap) (M.insertWith (++) key [] accMap) edges) M.empty
+reverseGraph = M.foldrWithKey (\key edges accMap -> foldr (\val newMap -> M.insertWith (++) val [key] newMap) (M.insertWith (++) key [] accMap) edges) M.empty
 
 loeb :: (Functor f) => f (f a -> a) -> f a
 loeb fs = go where go = fmap ($ go) fs
@@ -51,20 +51,23 @@ graphUpdates = M.mapWithKey updateFunc
     target : _ -> succ $ distMap M.! target
 
 getDistanceMap' :: Graph -> M.Map String Int
-getDistanceMap' graph = loeb (graphUpdates $ reverseGraph  graph)
+getDistanceMap' graph = loeb (graphUpdates $ reverseGraph graph)
 
-getCommonAncestorLength :: String -> String -> Graph -> Int 
-getCommonAncestorLength node1 node2 graph = go node1 node2 where   
+getCommonAncestorLength :: String -> String -> Graph -> Int
+getCommonAncestorLength node1 node2 graph = go node1 node2
+ where
   rGraph = reverseGraph graph
-  path  = unfoldr (\n -> (\case  {[] -> Nothing; (next:_) -> Just  (n, next)}) =<<  M.lookup n rGraph)
-  go n1 n2 = let 
-    path1 = zip [0..] $ path n1 
-    path2 = zip [0..] $ path n2 
-    commonNodeDists = [l1 + l2  | (l1, n1) <- path1, (l2, n2) <- path2, n1 == n2] 
-    in case commonNodeDists of 
-      firstDist:_ -> firstDist - 2  
-      _ -> 0 
+  path = unfoldr (\n -> (\case [] -> Nothing; (next : _) -> Just (n, next)) =<< M.lookup n rGraph)
+  go n1 n2 =
+    let
+      path1 = zip [0 ..] $ path n1
+      path2 = zip [0 ..] $ path n2
+      commonNodeDists = [l1 + l2 | (l1, n1) <- path1, (l2, n2) <- path2, n1 == n2]
+     in
+      case commonNodeDists of
+        firstDist : _ -> firstDist - 2
+        _ -> 0
 
-solution1 = sum .  getDistanceMap' 
+solution1 = sum . getDistanceMap'
 solution2 = getCommonAncestorLength "SAN" "YOU"
-getSolutions6 = getSolutions parseFile solution1 solution2 
+getSolutions6 = getSolutions parseFile solution1 solution2
