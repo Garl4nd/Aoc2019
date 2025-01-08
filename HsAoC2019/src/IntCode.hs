@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module IntCode (insertCode, createMachine, runCode, runMachine, runCodeST, runCodeWInputST, codeParser, Machine, mState, updateMachineInput, getOutputs) where
+module IntCode (insertCode, createMachine, runCode, runMachine, runCodeST, runCodeWInputST, codeParser, Machine (..), MachineState (..), mState, updateMachineInput, getOutputs) where
 
 import Control.Monad (forM_, unless, when, (<=<), (>=>))
 import Control.Monad.Ref
