@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module IntCode (insertCode, runCode, runCodeST, runCodeWInputST, codeParser) where
+module IntCode (insertCode, createMachine, runCode, runMachine, runCodeST, runCodeWInputST, codeParser, Machine, mState, updateMachineInput, getOutputs) where
 
-import Control.Monad (forM_, unless, when)
+import Control.Monad (forM_, unless, when, (<=<), (>=>))
 import Control.Monad.Ref
 import Control.Monad.ST (runST)
 import qualified Data.Array as A
@@ -11,6 +11,7 @@ import Data.Array.Base (MArray (newArray), readArray, writeArray)
 import Data.Array.ST (runSTArray)
 import Data.List (unfoldr)
 import Data.Tuple (swap)
+import Debugging (traceWInfo)
 import GHC.Arr (freezeSTArray)
 import Useful (splitOn)
 
@@ -26,17 +27,10 @@ data Machine a r = Machine
   }
 
 insertCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (Machine a r)
-insertCode code = do
-  ar <- newArray (0, length code - 1) 0
-  ptrRef <- newRef 0
-  inputs <- newRef []
-  outputs <- newRef []
-  mState <- newRef Running
-  forM_ (zip code [0 ..]) $ \(val, pos) -> writeArray ar pos val
-  return Machine{mCode = ar, ptrRef, inputs, outputs, mState}
+insertCode = flip createMachine []
 
-insertCodeAndInput :: (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m (Machine a r)
-insertCodeAndInput code input = do
+createMachine :: (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m (Machine a r)
+createMachine code input = do
   ar <- newArray (0, length code - 1) 0
   ptrRef <- newRef 0
   inputs <- newRef input
@@ -74,9 +68,14 @@ parseModesAndOpCode num =
       modes = unfoldr (\n -> if n == 0 then Nothing else Just $ swap $ n `quotRem` 10) modeDigit
    in (numToMode <$> modes ++ repeat 0, opCode)
 
-runMachine :: (MArray a Int m, MonadRef r m) => m (Machine a r) -> m (Machine a r)
-runMachine machineCalc = do
-  machine@Machine{mState} <- machineCalc
+updateMachineInput :: (MArray a Int m, MonadRef r m) => [Int] -> Machine a r -> m (Machine a r)
+updateMachineInput input machine@Machine{inputs} = do
+  inputLs <- readRef inputs
+  writeRef inputs (inputLs ++ input)
+  return machine{inputs = inputs}
+
+runMachine :: (MArray a Int m, MonadRef r m) => Machine a r -> m (Machine a r)
+runMachine machine@Machine{mState} = do
   writeRef mState Running
   execMachine machine
   return machine
@@ -135,20 +134,24 @@ runMachine machineCalc = do
           state <- readRef mState
           when (state == Running) loop
 
-runCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (a Int Int)
-runCode = fmap mCode . runMachine . insertCode
+getOutputs :: (MArray a Int m, MonadRef r m) => Machine a r -> m [Int]
+getOutputs Machine{outputs} = readRef outputs
 
 runCodeWInput :: (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m (a Int Int)
-runCodeWInput = ((fmap mCode . runMachine) .) . insertCodeAndInput
+runCodeWInput = ((fmap mCode . runMachine) <=<) . createMachine
+
+runCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (a Int Int)
+runCode = flip runCodeWInput []
 
 runCodeST :: [Int] -> [Int] -- A.Array Int Int
 runCodeST code = A.elems $ runSTArray $ runCode code
 
-runCodeWInputST :: [Int] -> [Int] -> ([Int], [Int]) -- A.Array Int Int
+runCodeWInputST :: [Int] -> [Int] -> ([Int], [Int], MachineState) -- A.Array Int Int
 runCodeWInputST code input =
-  let (ar, output) = runST $ do
-        Machine{mCode, outputs} <- runMachine $ insertCodeAndInput code input
+  let (ar, output, state) = runST $ do
+        Machine{mCode, outputs, mState} <- runMachine =<< createMachine code input
         output <- readRef outputs
         ar <- freezeSTArray mCode
-        return (ar, output)
-   in (A.elems ar, output)
+        state <- readRef mState
+        return (ar, output, state)
+   in (A.elems ar, output, state)
