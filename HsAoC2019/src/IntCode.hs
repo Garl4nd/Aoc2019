@@ -128,7 +128,7 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
             inputVal1 <- valGetter mode1 inputPos1
             inputVal2 <- valGetter mode2 inputPos2
             writeArray mCode outputPos (op opCode inputVal1 inputVal2)
-            writeRef ptrRef (ptr + 4)
+            modifyRef ptrRef (+ 4)
         | opCode `elem` binaryOps -> do
             inputPos1 <- readArray mCode (ptr + 1)
             inputPos2 <- readArray mCode (ptr + 2)
@@ -146,18 +146,18 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
                   (currentInput : remainingInput) -> do
                     writeArray mCode targetPos currentInput
                     writeRef inputs remainingInput
-                    writeRef ptrRef (ptr + 2)
+                    modifyRef ptrRef (+ 2)
               else
                 if opCode == outC
                   then do
                     outputLs <- readRef outputs
                     outputVal <- valGetter mode1 targetPos
                     writeRef outputs $ outputLs ++ [outputVal]
-                    writeRef ptrRef (ptr + 2)
+                    modifyRef ptrRef (+ 2)
                   else when (opCode == moveBaseC) $ do
-                    newBaseVal <- valGetter mode1 targetPos
-                    writeRef baseRef newBaseVal
-                    writeRef ptrRef (ptr + 2)
+                    baseJumpVal <- valGetter mode1 targetPos
+                    modifyRef baseRef (+ baseJumpVal)
+                    modifyRef ptrRef (+ 2)
         | otherwise -> return ()
 
 getOutputs :: (MArray a Int m, MonadRef r m) => Machine a r -> m [Int]
