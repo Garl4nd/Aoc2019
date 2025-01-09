@@ -75,12 +75,13 @@ data Mode = PositionMode | ImmediateMode | RelativeMode deriving (Eq, Show)
 numToMode :: Int -> Mode
 numToMode 0 = PositionMode
 numToMode 1 = ImmediateMode
+numToMode 2 = RelativeMode
 numToMode _ = error "Undefined mode"
 
 parseModesAndOpCode :: Int -> ([Mode], Int)
 parseModesAndOpCode num =
-  let (modeDigit, opCode) = num `quotRem` 100
-      modes = unfoldr (\n -> if n == 0 then Nothing else Just $ swap $ n `quotRem` 10) modeDigit
+  let (modeDigits, opCode) = num `quotRem` 100
+      modes = unfoldr (\n -> if n == 0 then Nothing else Just $ swap $ n `quotRem` 10) modeDigits
    in (numToMode <$> modes ++ repeat 0, opCode)
 
 updateMachineInput :: (MArray a Int m, MonadRef r m) => [Int] -> Machine a r -> m (Machine a r)
@@ -144,7 +145,11 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
                 case inputLs of
                   [] -> writeRef mState WaitingForInput
                   (currentInput : remainingInput) -> do
-                    writeArray mCode targetPos currentInput
+                    outputPos <- case mode1 of
+                      PositionMode -> return targetPos
+                      RelativeMode -> (+ targetPos) <$> readRef baseRef
+                    writeArray mCode outputPos currentInput
+                    -- writeArray mCode outPos currentInput
                     writeRef inputs remainingInput
                     modifyRef ptrRef (+ 2)
               else
@@ -165,11 +170,13 @@ getOutputs Machine{outputs} = readRef outputs
 
 runCodeWInput :: forall a r m. (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m MachineResult -- A.Array Int Int
 runCodeWInput code input = do
-  Machine{mCode, outputs, mState} :: Machine a r <- runMachine =<< createMachine code input
+  Machine{mCode, outputs, mState} :: Machine a r <- runMachine =<< createMachine extCode input
   output <- readRef outputs
   ar :: A.UArray Int Int <- freeze mCode
   state <- readRef mState
   return $ MachineResult (A.elems ar) output state
+ where
+  extCode = code ++ replicate (10 * length code) 0
 
 runCodeWInputIO :: [Int] -> [Int] -> IO MachineResult -- A.Array Int Int
 runCodeWInputIO code input = runCodeWInput @IOArray code input where
