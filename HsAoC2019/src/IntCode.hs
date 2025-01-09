@@ -108,7 +108,7 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
   let valGetter mode pos = case mode of
         ImmediateMode -> return pos
         RelativeMode -> readRef baseRef >>= \base -> readArray mCode (base + pos)
-        _ -> readArray mCode pos
+        PositionMode -> readArray mCode pos
   let op n
         | n == addC = (+)
         | n == mulC = (*)
@@ -120,49 +120,38 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
   if opCode == endC
     then writeRef mState Halted
     else do
-      let (mode1 : mode2 : _) = modes
+      let (mode1 : mode2 : mode3 : _) = modes
       if
         | opCode `elem` ternaryOps -> do
-            inputPos1 <- readArray mCode (ptr + 1)
-            inputPos2 <- readArray mCode (ptr + 2)
-            outputPos <- readArray mCode (ptr + 3)
-            inputVal1 <- valGetter mode1 inputPos1
-            inputVal2 <- valGetter mode2 inputPos2
+            inputVal1 <- valGetter mode1 =<< readArray mCode (ptr + 1)
+            inputVal2 <- valGetter mode2 =<< readArray mCode (ptr + 2)
+            outputPos <- valGetter mode3 =<< readArray mCode (ptr + 3)
             writeArray mCode outputPos (op opCode inputVal1 inputVal2)
             modifyRef ptrRef (+ 4)
         | opCode `elem` binaryOps -> do
-            inputPos1 <- readArray mCode (ptr + 1)
-            inputPos2 <- readArray mCode (ptr + 2)
-            inputVal1 <- valGetter mode1 inputPos1
-            inputVal2 <- valGetter mode2 inputPos2
+            inputVal1 <- valGetter mode1 =<< readArray mCode (ptr + 1)
+            inputVal2 <- valGetter mode2 =<< readArray mCode (ptr + 2)
             let newPos = op opCode inputVal1 inputVal2
             writeRef ptrRef newPos
         | opCode `elem` unaryOps -> do
-            targetPos <- readArray mCode (ptr + 1)
             if opCode == inpC
               then do
+                targetPos <- readArray mCode (ptr + 1) >>= \p -> if mode1 == PositionMode then return p else (+ p) <$> readRef baseRef
                 inputLs <- readRef inputs
                 case inputLs of
                   [] -> writeRef mState WaitingForInput
                   (currentInput : remainingInput) -> do
-                    outputPos <- case mode1 of
-                      PositionMode -> return targetPos
-                      RelativeMode -> (+ targetPos) <$> readRef baseRef
-                    writeArray mCode outputPos currentInput
-                    -- writeArray mCode outPos currentInput
+                    writeArray mCode targetPos currentInput
                     writeRef inputs remainingInput
-                    modifyRef ptrRef (+ 2)
-              else
+              else do
+                targetVal <- valGetter mode1 =<< readArray mCode (ptr + 1)
                 if opCode == outC
                   then do
                     outputLs <- readRef outputs
-                    outputVal <- valGetter mode1 targetPos
-                    writeRef outputs $ outputLs ++ [outputVal]
-                    modifyRef ptrRef (+ 2)
+                    writeRef outputs $ outputLs ++ [targetVal]
                   else when (opCode == moveBaseC) $ do
-                    baseJumpVal <- valGetter mode1 targetPos
-                    modifyRef baseRef (+ baseJumpVal)
-                    modifyRef ptrRef (+ 2)
+                    modifyRef baseRef (+ targetVal)
+            modifyRef ptrRef (+ 2)
         | otherwise -> return ()
 
 getOutputs :: (MArray a Int m, MonadRef r m) => Machine a r -> m [Int]
@@ -179,7 +168,7 @@ runCodeWInput code input = do
   extCode = code ++ replicate (10 * length code) 0
 
 runCodeWInputIO :: [Int] -> [Int] -> IO MachineResult -- A.Array Int Int
-runCodeWInputIO code input = runCodeWInput @IOArray code input where
+runCodeWInputIO = runCodeWInput @IOArray
 
 runCodeWInputST :: [Int] -> [Int] -> MachineResult -- A.Array Int Int
 runCodeWInputST code input = runST stCalc
