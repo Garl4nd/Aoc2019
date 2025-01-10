@@ -6,7 +6,7 @@ import Useful (getSolutions)
 type Code = [Int]
 
 runCodeWith :: Int -> Int -> Code -> Code
-runCodeWith noun verb (start : _ : _ : rest) =  finalCode $ runCodeWInputST (start : noun : verb : rest) []
+runCodeWith noun verb (start : _ : _ : rest) = finalCode $ runCodeWInputST [] (start : noun : verb : rest)
 runCodeWith _ _ _ = []
 
 solution1 :: Code -> Int

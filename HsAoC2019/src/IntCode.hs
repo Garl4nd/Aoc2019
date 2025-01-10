@@ -3,7 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
-module IntCode (insertCode, createMachine, runMachine, runCodeWInputST, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, updateMachineInput, getOutputs) where
+module IntCode (createMachine, runMachine, runCodeWInputST, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs) where
 
 import Control.Monad (forM_, unless, when, (<=<), (>=>))
 import Control.Monad.Ref
@@ -17,8 +17,9 @@ import Debugging (traceWInfo)
 
 -- import GHC.Arr (freezeSTArray)
 
+import Control.Monad.Fix (fix)
 import Data.Array.Base (freeze)
-import Data.Array.IO.Internals (IOArray (IOArray))
+import Data.Array.IO (IOArray)
 import Data.Foldable
 import Useful (splitOn)
 
@@ -29,8 +30,8 @@ data Machine a r = Machine
   { mCode :: a Int Int
   , ptrRef :: r Int
   , baseRef :: r Int
-  , inputs :: r [Int]
-  , outputs :: r [Int]
+  , inputsRef :: r [Int]
+  , outputsRef :: r [Int]
   , mState :: r MachineState
   }
 data MachineResult = MachineResult
@@ -39,19 +40,17 @@ data MachineResult = MachineResult
   , machineState :: MachineState
   }
   deriving (Show)
-insertCode :: (MArray a Int m, MonadRef r m) => [Int] -> m (Machine a r)
-insertCode = flip createMachine []
 
-createMachine :: (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m (Machine a r)
-createMachine code input = do
-  ar <- newArray (0, length code - 1) 0
+createMachine :: (MArray a Int m, MonadRef r m) => [Int] -> m (Machine a r)
+createMachine code = do
+  ar <- newArray (0, 5 * length code - 1) 0
   ptrRef <- newRef 0
   baseRef <- newRef 0
-  inputs <- newRef input
-  outputs <- newRef []
+  inputsRef <- newRef []
+  outputsRef <- newRef []
   mState <- newRef Running
   forM_ (zip code [0 ..]) $ \(val, pos) -> writeArray ar pos val
-  return Machine{mCode = ar, ptrRef, baseRef, inputs, outputs, mState}
+  return Machine{mCode = ar, ptrRef, baseRef, inputsRef, outputsRef, mState}
 
 addC, mulC, endC, inpC, outC, jumpTC, jumpFC, lessC, equalsC, moveBaseC :: Int
 addC = 1
@@ -84,24 +83,24 @@ parseModesAndOpCode num =
       modes = unfoldr (\n -> if n == 0 then Nothing else Just $ swap $ n `quotRem` 10) modeDigits
    in (numToMode <$> modes ++ repeat 0, opCode)
 
-updateMachineInput :: (MArray a Int m, MonadRef r m) => [Int] -> Machine a r -> m (Machine a r)
-updateMachineInput input machine@Machine{inputs} = do
-  inputLs <- readRef inputs
-  writeRef inputs (inputLs ++ input)
-  return machine{inputs = inputs}
-
-runMachine :: (MArray a Int m, MonadRef r m) => Machine a r -> m (Machine a r)
-runMachine machine@Machine{mState} = do
-  writeRef mState Running
-  let loop = do
+runMachine :: (MArray a Int m, MonadRef r m) => [Int] -> Machine a r -> m (Machine a r)
+runMachine inputs machine@Machine{mState, inputsRef, outputsRef} = do
+  currentState <- readRef mState
+  if currentState == Halted
+    then return machine
+    else do
+      writeRef mState Running
+      modifyRef inputsRef (++ inputs)
+      writeRef outputsRef []
+      fix $ \loop -> do
         stepMachine machine
         state <- readRef mState
         when (state == Running) loop
-  loop
-  return machine
+
+      return machine
 
 stepMachine :: (MArray a Int m, MonadRef r m) => Machine a r -> m ()
-stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
+stepMachine Machine{mCode, ptrRef, baseRef, inputsRef, outputsRef, mState} = do
   ptr <- readRef ptrRef
   modesAndOpCode <- readArray mCode ptr
   let (modes, opCode) = parseModesAndOpCode modesAndOpCode
@@ -140,17 +139,17 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
             if opCode == inpC
               then do
                 targetPos <- positionGetter mode1 =<< readArray mCode (ptr + 1)
-                inputLs <- readRef inputs
+                inputLs <- readRef inputsRef
                 case inputLs of
                   [] -> writeRef mState WaitingForInput
                   (currentInput : remainingInput) -> do
                     writeArray mCode targetPos currentInput
-                    writeRef inputs remainingInput
+                    writeRef inputsRef remainingInput
                     modifyRef ptrRef (+ 2)
               else do
                 targetVal <- valGetter mode1 =<< readArray mCode (ptr + 1)
                 if opCode == outC
-                  then modifyRef outputs (++ [targetVal])
+                  then modifyRef outputsRef (++ [targetVal])
                   else
                     when (opCode == moveBaseC) $
                       modifyRef baseRef (+ targetVal)
@@ -158,23 +157,25 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputs, outputs, mState} = do
         | otherwise -> return ()
 
 getOutputs :: (MArray a Int m, MonadRef r m) => Machine a r -> m [Int]
-getOutputs Machine{outputs} = readRef outputs
+getOutputs Machine{outputsRef} = readRef outputsRef
 
-runCodeWInput :: forall a r m. (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m MachineResult -- A.Array Int Int
-runCodeWInput code input = do
-  Machine{mCode, outputs, mState} :: Machine a r <- runMachine =<< createMachine extCode input
-  output <- readRef outputs
+getMachineResult :: forall a r m. (MArray a Int m, MonadRef r m) => Machine a r -> m MachineResult -- A.Array Int Int
+getMachineResult Machine{mCode, outputsRef, mState} = do
+  output <- readRef outputsRef
   ar :: A.UArray Int Int <- freeze mCode
   state <- readRef mState
   return $ MachineResult (A.elems ar) output state
- where
-  extCode = code ++ replicate (10 * length code) 0
+
+runCodeWInput :: forall a r m. (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m MachineResult -- A.Array Int Int
+runCodeWInput input code = do
+  machine :: Machine a r <- runMachine input =<< createMachine code
+  getMachineResult machine
 
 runCodeWInputIO :: [Int] -> [Int] -> IO MachineResult -- A.Array Int Int
 runCodeWInputIO = runCodeWInput @IOArray
 
 runCodeWInputST :: [Int] -> [Int] -> MachineResult -- A.Array Int Int
-runCodeWInputST code input = runST stCalc
+runCodeWInputST input code = runST stCalc
  where
   stCalc :: forall s. ST s MachineResult
-  stCalc = runCodeWInput @(STUArray s) code input
+  stCalc = runCodeWInput @(STUArray s) input code

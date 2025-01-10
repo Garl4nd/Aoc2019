@@ -9,22 +9,22 @@ import Control.Monad.ST
 import Data.List (permutations)
 import IntCode
 
+import Control.Monad.Fix (fix)
 import Control.Monad.Ref
 import Data.Array.Base (MArray)
-import Useful (getSolutions)
 import Data.Array.ST (STUArray)
-import Control.Monad.Fix (fix)
+import Useful (getSolutions)
 
 amplifierLoop :: forall a m r. (MArray a Int m, MonadRef r m) => [Int] -> [Int] -> m Int
 amplifierLoop code settings = do
-  machines :: [Machine a r] <- sequence [createMachine code [s] | s<- settings] 
-  let singleRun inp0 = foldM (\input machine -> let outputs = updateMachineInput [input] machine >>= runMachine >>= getOutputs in last <$> outputs) inp0 machines
+  machines :: [Machine a r] <- sequence [runMachine [s] =<< createMachine code | s <- settings]
+  let singleRun inp0 = foldM (\input machine -> let outputs = runMachine [input] machine >>= getOutputs in last <$> outputs) inp0 machines
   flip fix 0 $ \loop inp -> do
-        output <- singleRun inp
-        state <- readRef . mState . last $ machines
-        if state == Halted
-          then return output
-          else loop output
+    output <- singleRun inp
+    state <- readRef . mState . last $ machines
+    if state == Halted
+      then return output
+      else loop output
 
 solution1 :: [Int] -> Int
 solution1 code = maxAmplifierOutput code [0 .. 4]
