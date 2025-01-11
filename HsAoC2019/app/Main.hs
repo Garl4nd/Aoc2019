@@ -4,11 +4,13 @@ module Main (
 
 import Control.Concurrent (getNumCapabilities)
 import Control.Monad (unless, (>=>))
+import Data.List (intercalate)
 import InputDownloader (runFetchProblemDataToFiles)
 import Lib
 import System.Directory (copyFile)
 import System.TimeIt (timeItNamed)
 import Text.Read (readMaybe)
+import Useful (trimChar)
 
 mainLoop :: IO ()
 mainLoop = do
@@ -25,8 +27,10 @@ mainLoop = do
         copyFile inputFile $ "../RsAoc2019/input/" <> show day <> ".txt"
         case maybeSolver day of
           Just solver -> do
-            res <- solver inputFile
-            timeItNamed "The solution took " $ putStrLn $ "The solution of problem #" <> show day <> " is: " <> show res
+            (res1, res2) <- solver inputFile
+            putStrLn $ "The solution of problem #" <> show day <> " is: "
+            timeItNamed "Part 1 took " $ putStrLn ("Part1: " <> trimChar '"' res1)
+            timeItNamed "Part 2 took " $ putStrLn ("Part2: " <> trimChar '"' res2)
           Nothing -> putStrLn "Not yet solved"
       Nothing -> putStrLn "Not a number" --       return True
     mainLoop

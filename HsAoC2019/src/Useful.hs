@@ -11,6 +11,7 @@ module Useful (
   trimSpace,
   trimChar,
   countIf,
+  count,
   groupBySorted,
   groupByUnique,
   pairChoices,
@@ -96,6 +97,9 @@ groupBySorted ordFunc ls = map (\grp -> (fst <$> grp, snd . head $ grp)) $ group
 countIf :: (a -> Bool) -> [a] -> Int
 countIf = (length .) . filter
 
+count :: (Eq a) => a -> [a] -> Int
+count match = countIf (== match)
+
 pairChoices :: [a] -> [(a, a)]
 -- pairChoices xs = concat $ zipWith (\a rest -> [(a, r) | r<-rest] ) xs (tail $ tails xs) -- [(xs !! i, xs !! j) | i <- [0 .. length xs - 1], j <- [i + 1 .. length xs - 1]]
 pairChoices = concat . (zipWith (map . (,)) <*> (tail . tails)) -- just for point free fun, more comprehensible  implementations above
@@ -138,5 +142,5 @@ appendGridToFile filename charGrid =
    in
     appendFile filename content
 
-getSolutions :: (String -> a) -> (a -> b) -> (a -> b) -> (String -> IO (b, b))
+getSolutions :: (Show b, Show c) => (String -> a) -> (a -> b) -> (a -> c) -> (String -> IO (b, c))
 getSolutions parser solution1 solution2 = readFile >=> (parser >>> (solution1 &&& solution2) >>> return)
