@@ -3,11 +3,10 @@ module N10 (getSolutions10) where
 import qualified Data.Array as A
 import Data.Foldable (Foldable (toList), maximumBy)
 import Data.Function (on)
-import Data.List (find, sortOn, sortBy)
+import Data.List (find,  sortBy)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Useful
-import Debugging (traceWInfo)
 
 parseFile :: String -> CharGrid
 parseFile = strToCharGrid
@@ -56,7 +55,7 @@ solution2 charGrid =
     ((y, x), lineSet ) = maximumBy (compare `on` S.size . snd) $ M.assocs $ losCounter charGrid
     -- sortedLines = sortby (negate . uncurry atan2 . \(y, x) -> (fromIntegral x, fromIntegral y)) $ toList monitoringStation
     sortedLines = sortBy angleComparison $ toList lineSet 
-    (dy, dx) = (traceWInfo True "sL" sortedLines) !! 199 
+    (dy, dx) = sortedLines !! 199 
     Just (yRes, xRes) = find (`elem` asteroids) [(y + k * dy, x + k * dx) | k <- [1 ..]]
    in
     100 * (xRes - 1) + yRes - 1

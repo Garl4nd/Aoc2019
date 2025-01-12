@@ -24,9 +24,6 @@ fn get_asteroids(char_grid: &[Vec<char>]) -> Vec<(i32, i32)> {
         })
         .collect()
 }
-fn test_los((ys, xs): (i32, i32), (yt, xt): (i32, i32), char_grid: &[Vec<char>]) -> bool {
-    true
-}
 type AstPos = (i32, i32);
 fn gcd(a: i32, b: i32) -> i32 {
     if a == 0 {
@@ -94,9 +91,7 @@ fn solution2(char_grid: &[Vec<char>]) -> u64 {
         .iter()
         .sorted_by(|p1, p2| angle_comparison(**p1, **p2))
             // f64::total_cmp(
-            //     &atan2((*b2) as f64, (*a2) as f64),
-
-        
+            //     &atan2((*b2) as f64, (*a2) as f64),        
         .collect();
 
     let (dy200, dx200) = clockwise_lines[199];
