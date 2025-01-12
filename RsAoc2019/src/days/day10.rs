@@ -1,10 +1,8 @@
-use itertools::{Itertools, MinMaxResult};
-use libm::atan2;
+use itertools::{Itertools};
 
 use crate::{Solution, SolutionPair};
 use std::{
-    collections::{HashMap, HashSet},
-    fs::read_to_string,
+    cmp::Ordering, collections::{HashMap, HashSet}, fs::read_to_string 
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -49,7 +47,6 @@ fn get_line((y1, x1): &AstPos, (y2, x2): &AstPos) -> (i32, i32) {
     let dy = y2 - y1;
     let dx = x2 - x1;
     let d = gcd(dy.abs(), dx.abs());
-    print!("{},{},{}", dy, dx, d);
     (dy / d, dx / d)
 }
 fn calc_los_counts(asteroids: &[AstPos]) -> HashMap<AstPos, HashSet<AstPos>> {
@@ -74,6 +71,19 @@ fn solution1(char_grid: &[Vec<char>]) -> u64 {
         .max()
         .unwrap()
 }
+fn angle_comparison((y,x) : AstPos, (y2, x2) : AstPos) -> Ordering
+{
+    if x>=0 && x2 < 0 {Ordering::Less}
+    else if x<0 && x2 >=0 {Ordering::Greater}
+    else {match y*x2 - x*y2 {
+        p if p<0 => {Ordering::Less}
+        p if p>0 => {Ordering::Greater}
+        _ if y>0 && y2<0 => {Ordering::Greater}
+        _ if y<0 && y2>0 => {Ordering::Less}
+        _ => {Ordering::Equal}
+    }}
+}
+
 fn solution2(char_grid: &[Vec<char>]) -> u64 {
     let asteroids = get_asteroids(char_grid);
     let ((y, x), lines) = calc_los_counts(&asteroids)
@@ -82,12 +92,11 @@ fn solution2(char_grid: &[Vec<char>]) -> u64 {
         .unwrap();
     let clockwise_lines: Vec<&(i32, i32)> = lines
         .iter()
-        .sorted_by(|(a, b), (a2, b2)| {
-            f64::total_cmp(
-                &atan2((*b2) as f64, (*a2) as f64),
-                &atan2((*b) as f64, (*a) as f64),
-            )
-        })
+        .sorted_by(|p1, p2| angle_comparison(**p1, **p2))
+            // f64::total_cmp(
+            //     &atan2((*b2) as f64, (*a2) as f64),
+
+        
         .collect();
 
     let (dy200, dx200) = clockwise_lines[199];

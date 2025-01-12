@@ -3,10 +3,11 @@ module N10 (getSolutions10) where
 import qualified Data.Array as A
 import Data.Foldable (Foldable (toList), maximumBy)
 import Data.Function (on)
-import Data.List (find, sortOn)
+import Data.List (find, sortOn, sortBy)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Useful
+import Debugging (traceWInfo)
 
 parseFile :: String -> CharGrid
 parseFile = strToCharGrid
@@ -36,13 +37,26 @@ losCounter charGrid =
 solution1 :: CharGrid -> Int
 solution1 = maximum . fmap S.size . losCounter
 
+angleComparison:: GridPos -> GridPos -> Ordering
+angleComparison (y,x) (y',x') 
+  | x >= 0 && x' < 0 = LT  
+  | x < 0 && x' >= 0 = GT 
+  | otherwise = let crossP = -(x*y') + y * x' in 
+    if 
+      | crossP < 0 -> LT 
+      | crossP > 0 -> GT 
+      | y > 0 && y' <0 -> GT 
+      | y <0 && y' >0 -> LT 
+      | otherwise -> EQ 
+
 solution2 :: CharGrid -> Int
 solution2 charGrid =
   let
     asteroids = getAsteroids charGrid
-    ((y, x), monitoringStation) = maximumBy (compare `on` S.size . snd) $ M.assocs $ losCounter charGrid
-    sortedLines = sortOn (negate . uncurry atan2 . \(y, x) -> (fromIntegral x, fromIntegral y)) $ toList monitoringStation
-    (dy, dx) = sortedLines !! 199
+    ((y, x), lineSet ) = maximumBy (compare `on` S.size . snd) $ M.assocs $ losCounter charGrid
+    -- sortedLines = sortby (negate . uncurry atan2 . \(y, x) -> (fromIntegral x, fromIntegral y)) $ toList monitoringStation
+    sortedLines = sortBy angleComparison $ toList lineSet 
+    (dy, dx) = (traceWInfo True "sL" sortedLines) !! 199 
     Just (yRes, xRes) = find (`elem` asteroids) [(y + k * dy, x + k * dx) | k <- [1 ..]]
    in
     100 * (xRes - 1) + yRes - 1
