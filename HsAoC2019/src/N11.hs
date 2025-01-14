@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
-module N11 () where
+module N11 (getSolutions11) where
 
 import Control.Monad (unless, when)
 import Control.Monad.Fix (fix)
@@ -50,7 +50,7 @@ solution2 :: [Int] -> String
 solution2 code = let 
   (finalPaintEncoded, _) = paintShip 1 code 
   finalPaint = (\x -> if x>0 then 'O' else ' ') <$> finalPaintEncoded
-  in intercalate "\n" $  charGridToStr finalPaint
+  in unlines $  charGridToStr finalPaint
 
 
 newDirection :: Int -> Direction -> Direction
@@ -70,3 +70,5 @@ turn (y, x) U = (y - 1, x)
 turn (y, x) D = (y + 1, x)
 turn (y, x) L = (y, x - 1)
 turn (y, x) R = (y, x + 1)
+
+getSolutions11 = getSolutions codeParser solution1 solution2 
