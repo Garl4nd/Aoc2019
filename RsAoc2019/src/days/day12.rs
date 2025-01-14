@@ -1,8 +1,8 @@
 use itertools::{process_results, Itertools};
-
 use crate::{Solution, SolutionPair};
+use crate::days::useful;
 use std::{convert::identity, fs::read_to_string};
-
+use useful::Useful::lcm;
 ///////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Vec3D {
@@ -60,7 +60,7 @@ fn floyd_mut<T: Clone, S: Eq + std::fmt::Debug>(
     f: impl Fn(&mut T),
     init_val: &T,
     eq_proxy: impl Fn(&T) -> S,
-) -> (i32, i32) {
+) -> (u64, u64) {
     let mut hare = init_val.clone();
     let mut tortoise = init_val.clone();
     f(&mut tortoise);
@@ -69,7 +69,7 @@ fn floyd_mut<T: Clone, S: Eq + std::fmt::Debug>(
         f(&mut tortoise);
         fTwice!(f, &mut hare);
     }
-    dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
+    // dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
     tortoise = init_val.clone();
     let mut mu = 0;
     while eq_proxy(&tortoise) != eq_proxy(&hare) {
@@ -77,17 +77,17 @@ fn floyd_mut<T: Clone, S: Eq + std::fmt::Debug>(
         f(&mut hare);
         mu += 1;
     }
-    dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
+    // dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
     let mut lam = 1;
     f(&mut tortoise);
     while eq_proxy(&tortoise) != eq_proxy(&hare) {
         f(&mut tortoise);
         lam += 1;
     }
-    dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
+    // dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
     f(&mut tortoise);
     f(&mut hare);
-    dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
+    // dbg!(eq_proxy(&tortoise), eq_proxy(&hare));
     (mu, lam)
 }
 
@@ -139,29 +139,42 @@ fn total_energy(moons: &Vec<Moon>) -> u64 {
         .map(|(pos, vel)| (*pos).energy() * (*vel).energy())
         .sum()
 }
-fn kinetic_energy(moons: &Vec<Moon>) -> u64 {
-    moons.iter().map(|(pos, vel)| (*vel).energy()).sum()
-}
+fn proj_moon_x (moons : &Vec<Moon> ) -> Vec<(i32, i32)> 
+{
+        moons.iter().map(|moon| (moon.0.x, moon.1.x)).collect()
+    }
+fn proj_moon_y (moons : &Vec<Moon> ) -> Vec<(i32, i32)> 
+{
+        moons.iter().map(|moon| (moon.0.y, moon.1.y)).collect()
+    }
+fn proj_moon_z (moons : &Vec<Moon> ) -> Vec<(i32, i32)> 
+{
+        moons.iter().map(|moon| (moon.0.z, moon.1.z)).collect()
+    }
 
-fn tot_kin_energy(moons: &Vec<Moon>) -> (u64, u64, i32) {
-    (total_energy(moons), kinetic_energy(moons), moons[0].0.x)
-}
-fn simulate_moons(moons: &mut Vec<Moon>) {
-    for t in 0..1001 {
-        dbg!(t, total_energy(&moons), &moons);
+fn solution1(moons: &Vec<Moon>) -> u64 {
+    let moons = &mut moons.clone();
+    for _ in 0..1000 {
         move_moons(moons);
     }
+    total_energy(moons)
+}
+
+fn solution2(moons: &Vec<Moon>) -> u64
+{
+    let (_, px) = floyd_mut(move_moons, &moons.clone(), proj_moon_x);
+    let (_, py) = floyd_mut(move_moons, &moons.clone(), proj_moon_y);
+    let (_, pz) = floyd_mut(move_moons, &moons.clone(), proj_moon_z);
+    lcm(lcm(px ,py),pz)
 }
 pub fn solve() -> SolutionPair {
     // Your solution here...
     let file = read_to_string("input/12.txt").unwrap();
     let moons = parse_file(&file);
-    let mut moon_copy = moons.clone();
-    println!("{:?}", floyd_mut(move_moons, &moons, tot_kin_energy));
-    //println!("{:?}", moons);
+   //println!("{:?}", moons);
     //simulate_moons(&mut moonCopy);
-    let sol1: u64 = 0;
-    let sol2: u64 = 0;
+    let sol1: u64 = solution1(&moons);
+    let sol2: u64 = solution2(&moons);
 
     (Solution::from(sol1), Solution::from(sol2))
 }
