@@ -1,4 +1,4 @@
-use itertools::Itertools;
+use itertools::{process_results, Itertools};
 
 use crate::{Solution, SolutionPair};
 use std::{fs::read_to_string};
@@ -35,6 +35,10 @@ impl Vec3D {
     {
         Self{x: mapping(self.x, other.x), y: mapping(self.y, other.y), z: mapping(self.z, other.z)}
     }
+    fn energy(&self) -> u64 
+    {
+        self.x.abs() as u64 + self.y.abs() as u64 + self.z.abs() as u64
+    }
 
 }
 type Moon = (Vec3D, Vec3D);
@@ -50,25 +54,40 @@ fn parse_file(file : &str) -> Vec<Moon>
 fn modify_velocities((pos1, ref mut vel1) : &mut Moon, (pos2, ref mut vel2) : &mut Moon) 
 {
     let dif_vec = Vec3D::compwise_binop(pos1, pos2, |c1, c2| match c2-c1 {0 => {0}, dif if dif>0 => {1}, _ => {-1}});
-    *vel1 = pos1.add(&dif_vec); 
-    *vel2 = pos2.sub(&dif_vec);
+    *vel1 = vel1.add(&dif_vec); 
+    *vel2 = vel2.sub(&dif_vec);
 }
 fn modify_position((ref mut pos, vel) : &mut Moon)
 {
     *pos = pos.add(vel);
 }
-fn move_moons(moons: &Vec<&mut Moon>)
+fn move_moons(moons: &mut Vec<Moon>)
 {
-   for (moon1, moon2)  in itertools::iproduct!(moons, moons) {
-        modify_velocities(moon1, moon2);
+   for i in 0..moons.len() {
+        for j in i+1..moons.len() 
+        {
+            let (moons1, moons2) = moons.split_at_mut(i+1);
+        modify_velocities(&mut (moons1)[i], &mut (moons2)[j-i-1]  );
+        }
     }
-
+    for moon in moons {
+        modify_position(moon);
+    }
+}
+fn simulate_moons(moons: &mut Vec<Moon>)
+{
+    for t in 0..1001{
+        let total_energy : u64= moons.iter().map(|(pos, vel)| (*pos).energy()* (*vel).energy()).sum();
+        dbg!(t, total_energy, &moons);
+        move_moons(moons);
+    }
 }
 pub fn solve() -> SolutionPair {
     // Your solution here...
     let file = read_to_string("input/12.txt").unwrap();
-    let moons = parse_file(&file);
+    let mut moons = parse_file(&file);
     println!("{:?}", moons);
+    simulate_moons(&mut moons);
     let sol1: u64 = 0;
     let sol2: u64 = 0;
     
