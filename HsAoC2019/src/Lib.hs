@@ -1,9 +1,12 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Lib (
   maybeSolver,
 ) where
 
 import N1
 import N10
+import N11
 import N2
 import N3
 import N4
@@ -12,7 +15,16 @@ import N6
 import N7
 import N8
 import N9
-import N11 
+
+class SolutionResult a where
+  showRes :: a -> String
+
+instance SolutionResult Int where
+  showRes = show
+
+instance SolutionResult String where
+  showRes = id
+
 maybeSolver :: Int -> Maybe (String -> IO (String, String))
 maybeSolver day = solFunc
  where
@@ -27,7 +39,7 @@ maybeSolver day = solFunc
     8 -> stringize <$> Just getSolutions8 -- 9 -> Just $ getSolutions9 "inputs/9.txt"
     9 -> stringize <$> Just getSolutions9 -- 9 -> Just $ getSolutions9 "inputs/9.txt"
     10 -> stringize <$> Just getSolutions10
-    11 -> stringize <$>  Just getSolutions11
+    11 -> stringize <$> Just getSolutions11
     -- 12 -> Just getSolutions12
     -- 13 -> Just getSolutions13
     -- 14 -> Just getSolutions14
@@ -46,7 +58,7 @@ maybeSolver day = solFunc
     -- 24 -> Just getSolutions24
     -- 25 -> Just getSolutions25
     _ -> Nothing
-  stringize :: (Show a, Show b) => (String -> IO (a, b)) -> (String -> IO (String, String))
+  stringize :: (SolutionResult a, SolutionResult b) => (String -> IO (a, b)) -> (String -> IO (String, String))
   stringize solFunc input = do
     (sol1, sol2) <- solFunc input
-    return (show sol1, show sol2)
+    return (showRes sol1, showRes sol2)
