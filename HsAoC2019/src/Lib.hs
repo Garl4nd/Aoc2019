@@ -7,6 +7,7 @@ module Lib (
 import N1
 import N10
 import N11
+import N12 
 import N2
 import N3
 import N4
@@ -20,6 +21,9 @@ class SolutionResult a where
   showRes :: a -> String
 
 instance SolutionResult Int where
+  showRes = show
+
+instance SolutionResult Integer where
   showRes = show
 
 instance SolutionResult String where
@@ -40,7 +44,7 @@ maybeSolver day = solFunc
     9 -> stringize <$> Just getSolutions9 -- 9 -> Just $ getSolutions9 "inputs/9.txt"
     10 -> stringize <$> Just getSolutions10
     11 -> stringize <$> Just getSolutions11
-    -- 12 -> Just getSolutions12
+    12 -> stringize <$> Just getSolutions12
     -- 13 -> Just getSolutions13
     -- 14 -> Just getSolutions14
     -- 15 -> Just getSolutions15

@@ -23,6 +23,7 @@ module Useful (
   neighbors4,
   neighbors8,
   neighborsDiag,
+  cycleDetectionFloyd',
   CharGrid,
   CharGridU,
   GridPos,
@@ -32,8 +33,9 @@ import Control.Arrow
 import Control.Monad ((>=>))
 import qualified Data.Array.Unboxed as A
 import Data.Function (on)
-import Data.List (findIndex, groupBy, intercalate, isPrefixOf, sortOn, tails)
+import Data.List (findIndex, groupBy, intercalate, isPrefixOf, sortOn, tails, find)
 import Data.Tuple (swap)
+import Data.Maybe (fromJust)
 
 type GridPos = (Int, Int)
 type CharGridU = A.UArray GridPos Char
@@ -141,6 +143,23 @@ appendGridToFile filename charGrid =
     content = intercalate "\n" $ charGridToStr charGrid
    in
     appendFile filename content
+
+cycleDetectionFloyd :: Eq a => [a]  -> (Int, Int)
+cycleDetectionFloyd fIterates = (mu, lambda) where    
+  nu = fromJust $ find (\i -> fIterates !! i == fIterates !! (2*i)) [1..]  
+  mu = fromJust $ find (\i -> fIterates !! i == fIterates !! (i+nu)) [0..]
+  lambda = fromJust $ find (\i -> fIterates !! mu == fIterates !! (mu+i )) [1..]
+
+cycleDetectionFloyd' :: Eq a => (a->a ) -> a  -> (Int, Int)
+cycleDetectionFloyd' f x0 = (mu, lambda) where    
+  f2 = f . f 
+  fiterates = iterate f x0 
+  f2iterates = iterate f2 x0 
+  nu = head [i | (i, tortoise, hare) <- zip3 [1..] (drop 1 fiterates) (drop 1 f2iterates), tortoise == hare]   
+  mu = head [i | (i, tortoise) <- zip [0..] fiterates, tortoise == fiterates !! (nu)]   
+  lambda = head [i| (i, tortoise) <- zip [1..]  (drop (mu+1) fiterates) , tortoise == fiterates !! (mu) ]
+
+
 
 getSolutions :: (Show b, Show c) => (String -> a) -> (a -> b) -> (a -> c) -> (String -> IO (b, c))
 getSolutions parser solution1 solution2 = readFile >=> (parser >>> (solution1 &&& solution2) >>> return)
