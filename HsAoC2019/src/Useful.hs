@@ -155,9 +155,10 @@ cycleDetectionFloyd' f x0 = (mu, lambda) where
   f2 = f . f 
   fiterates = iterate f x0 
   f2iterates = iterate f2 x0 
-  nu = head [i | (i, tortoise, hare) <- zip3 [1..] (drop 1 fiterates) (drop 1 f2iterates), tortoise == hare]   
-  mu = head [i | (i, tortoise) <- zip [0..] fiterates, tortoise == fiterates !! (nu)]   
-  lambda = head [i| (i, tortoise) <- zip [1..]  (drop (mu+1) fiterates) , tortoise == fiterates !! (mu) ]
+  repeatingEl = head [tortoise | (tortoise, hare) <- zip (drop 1 fiterates) (drop 1 f2iterates), tortoise == hare]   
+  repeatingPart = dropWhile ((/= repeatingEl).snd) $ zip [0..] fiterates
+  mu = fst . head $ repeatingPart  
+  lambda = (fst . head $ dropWhile ((/= repeatingEl).snd) (drop 1 repeatingPart)) - mu  
 
 
 
