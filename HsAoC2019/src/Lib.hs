@@ -7,7 +7,7 @@ module Lib (
 import N1
 import N10
 import N11
-import N12 
+import N12
 import N2
 import N3
 import N4

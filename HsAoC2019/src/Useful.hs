@@ -24,6 +24,7 @@ module Useful (
   neighbors8,
   neighborsDiag,
   cycleDetectionFloyd',
+  cycleDetectionBrent,
   CharGrid,
   CharGridU,
   GridPos,
@@ -33,9 +34,9 @@ import Control.Arrow
 import Control.Monad ((>=>))
 import qualified Data.Array.Unboxed as A
 import Data.Function (on)
-import Data.List (findIndex, groupBy, intercalate, isPrefixOf, sortOn, tails, find)
-import Data.Tuple (swap)
+import Data.List (find, findIndex, groupBy, intercalate, isPrefixOf, sortOn, tails)
 import Data.Maybe (fromJust)
+import Data.Tuple (swap)
 
 type GridPos = (Int, Int)
 type CharGridU = A.UArray GridPos Char
@@ -144,23 +145,35 @@ appendGridToFile filename charGrid =
    in
     appendFile filename content
 
-cycleDetectionFloyd :: Eq a => [a]  -> (Int, Int)
-cycleDetectionFloyd fIterates = (mu, lambda) where    
-  nu = fromJust $ find (\i -> fIterates !! i == fIterates !! (2*i)) [1..]  
-  mu = fromJust $ find (\i -> fIterates !! i == fIterates !! (i+nu)) [0..]
-  lambda = fromJust $ find (\i -> fIterates !! mu == fIterates !! (mu+i )) [1..]
+cycleDetectionFloyd :: (Eq a) => [a] -> (Int, Int)
+cycleDetectionFloyd fIterates = (mu, lambda)
+ where
+  nu = fromJust $ find (\i -> fIterates !! i == fIterates !! (2 * i)) [1 ..]
+  mu = fromJust $ find (\i -> fIterates !! i == fIterates !! (i + nu)) [0 ..]
+  lambda = fromJust $ find (\i -> fIterates !! mu == fIterates !! (mu + i)) [1 ..]
 
-cycleDetectionFloyd' :: Eq a => (a->a ) -> a  -> (Int, Int)
-cycleDetectionFloyd' f x0 = (mu, lambda) where    
-  f2 = f . f 
-  fiterates = iterate f x0 
-  f2iterates = iterate f2 x0 
-  repeatingEl = head [tortoise | (tortoise, hare) <- zip (drop 1 fiterates) (drop 1 f2iterates), tortoise == hare]   
-  repeatingPart = dropWhile ((/= repeatingEl).snd) $ zip [0..] fiterates
-  mu = fst . head $ repeatingPart  
-  lambda = (fst . head $ dropWhile ((/= repeatingEl).snd) (drop 1 repeatingPart)) - mu  
+cycleDetectionFloyd' :: (Eq a) => (a -> a) -> a -> (Int, Int)
+cycleDetectionFloyd' f x0 = (mu, lambda)
+ where
+  f2 = f . f
+  fiterates = iterate f x0
+  f2iterates = iterate f2 x0
+  repeatingEl = head [tortoise | (tortoise, hare) <- zip (drop 1 fiterates) (drop 1 f2iterates), tortoise == hare]
+  repeatingPart = dropWhile ((/= repeatingEl) . snd) $ zip [0 ..] fiterates
+  mu = fst . head $ repeatingPart
+  lambda = (fst . head $ dropWhile ((/= repeatingEl) . snd) (drop 1 repeatingPart)) - mu
 
-
+cycleDetectionBrent :: (Eq a) => (a -> a) -> a -> (Int, Int)
+cycleDetectionBrent f x0 = (mu, lambda)
+ where
+  fiterates = iterate f x0
+  lambda = lambdaLoop 1 1 x0 (drop 1 fiterates)
+  lambdaLoop lam power tortoise (hare : restIterates)
+    | tortoise == hare = lam
+    | power == lam = lambdaLoop 1 (2 * power) hare restIterates
+    | otherwise = lambdaLoop (lam + 1) power tortoise restIterates
+  iteratesFromLambda = drop lambda fiterates
+  mu = head [i | (i, tortoise, hare) <- zip3 [0 ..] fiterates iteratesFromLambda, tortoise == hare]
 
 getSolutions :: (Show b, Show c) => (String -> a) -> (a -> b) -> (a -> c) -> (String -> IO (b, c))
 getSolutions parser solution1 solution2 = readFile >=> (parser >>> (solution1 &&& solution2) >>> return)

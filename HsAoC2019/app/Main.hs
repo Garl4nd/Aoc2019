@@ -29,7 +29,7 @@ mainLoop = do
           Just solver -> do
             (res1, res2) <- solver inputFile
             putStrLn $ "The solution of problem #" <> show day <> " is: "
-            timeItNamed "Part 1 took " $ putStrLn ("Part1: " <> res1)
+            timeItNamed "Part 1 took " $ putStrLn ("Part1:\n" <> res1)
             timeItNamed "Part 2 took " $ putStrLn ("Part2:\n" <> res2)
           Nothing -> putStrLn "Not yet solved"
       Nothing -> putStrLn "Not a number" --       return True
