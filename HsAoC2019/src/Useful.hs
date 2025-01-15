@@ -4,6 +4,7 @@ module Useful (
   getSolutions,
   wordsWhen,
   splitOn,
+  chunksOf,
   readStrList,
   splitBySubstr,
   writeXY,
@@ -79,6 +80,11 @@ consecutivePairs :: [a] -> Maybe [(a, a)]
 consecutivePairs (x0 : x1 : xs) = ((x0, x1) :) <$> consecutivePairs xs
 consecutivePairs [_] = Nothing
 consecutivePairs [] = Just []
+
+chunksOf :: Int -> [a] -> [[a]]
+chunksOf n ls = case splitAt n ls of
+  ([], _) -> []
+  (chunk, rest) -> chunk : chunksOf n rest
 
 writeXY :: (Show a) => String -> [a] -> [a] -> IO ()
 writeXY fileName xs ys = do

@@ -12,11 +12,6 @@ type Image = CharGrid
 width, height :: Int
 width = 25
 height = 6
-chunksOf :: Int -> [a] -> [[a]]
-chunksOf n ls = case splitAt n ls of
-  ([], _) -> []
-  (chunk, rest) -> chunk : chunksOf n rest
-
 parseFile :: String -> [Image]
 parseFile file =
   let content = head . lines $ file
