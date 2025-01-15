@@ -10,7 +10,7 @@ import Text.Megaparsec (Parsec, endBy, runParser, sepBy, sepEndBy)
 import Text.Megaparsec.Char (char, letterChar, newline, space, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Debug (MonadParsecDbg (dbg))
-import Useful (cycleDetectionBrent, cycleDetectionFloyd', getSolutions)
+import Useful (cycleDetectionBrent, cycleDetectionFloyd, getSolutions)
 
 type SParser = Parsec Void String
 

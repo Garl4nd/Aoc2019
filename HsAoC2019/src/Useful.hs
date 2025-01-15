@@ -23,7 +23,7 @@ module Useful (
   neighbors4,
   neighbors8,
   neighborsDiag,
-  cycleDetectionFloyd',
+  cycleDetectionFloyd,
   cycleDetectionBrent,
   CharGrid,
   CharGridU,
@@ -145,23 +145,17 @@ appendGridToFile filename charGrid =
    in
     appendFile filename content
 
-cycleDetectionFloyd :: (Eq a) => [a] -> (Int, Int)
-cycleDetectionFloyd fIterates = (mu, lambda)
+cycleDetectionFloyd :: (Eq a) => (a -> a) -> a -> (Int, Int)
+cycleDetectionFloyd f x0 = (mu, lambda)
  where
-  nu = fromJust $ find (\i -> fIterates !! i == fIterates !! (2 * i)) [1 ..]
-  mu = fromJust $ find (\i -> fIterates !! i == fIterates !! (i + nu)) [0 ..]
-  lambda = fromJust $ find (\i -> fIterates !! mu == fIterates !! (mu + i)) [1 ..]
-
-cycleDetectionFloyd' :: (Eq a) => (a -> a) -> a -> (Int, Int)
-cycleDetectionFloyd' f x0 = (mu, lambda)
- where
-  f2 = f . f
   fiterates = iterate f x0
-  f2iterates = iterate f2 x0
-  repeatingEl = head [tortoise | (tortoise, hare) <- zip (drop 1 fiterates) (drop 1 f2iterates), tortoise == hare]
-  repeatingPart = dropWhile ((/= repeatingEl) . snd) $ zip [0 ..] fiterates
-  mu = fst . head $ repeatingPart
-  lambda = (fst . head $ dropWhile ((/= repeatingEl) . snd) (drop 1 repeatingPart)) - mu
+  repeatingPathOvershoot = findRepeats (drop 1 fiterates) (drop 2 fiterates)
+  findRepeats (tortoise : tortoisePath) hareIterates@(hare : _ : harePath)
+    | tortoise == hare = hareIterates
+    | otherwise = findRepeats tortoisePath harePath
+  repeatingPath = fmap (\(i, tortoise, _) -> (i, tortoise)) $ dropWhile (\(_, tortoise, hare) -> tortoise /= hare) $ zip3 [0 ..] fiterates repeatingPathOvershoot
+  (mu, firstRepeat) = head repeatingPath
+  lambda = (fst . head $ dropWhile ((/= firstRepeat) . snd) (drop 1 repeatingPath)) - mu
 
 cycleDetectionBrent :: (Eq a) => (a -> a) -> a -> (Int, Int)
 cycleDetectionBrent f x0 = (mu, lambda)
