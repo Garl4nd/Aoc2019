@@ -11,6 +11,9 @@ import Data.Function (fix)
 import Data.List (partition)
 import IntCode
 import Useful
+import Control.Monad.ST (runST)
+import Control.Monad.ST.Strict (ST)
+import Data.Array.ST (STArray)
 
 solution1 :: [Int] -> Int
 solution1 code =
@@ -33,10 +36,33 @@ objIdToChar = \case
 updateGameAr :: [[Int]] -> CharGrid -> CharGrid
 updateGameAr updates grid =
   grid // [((y, x), objIdToChar objId) | [x, y, objId] <- updates]
-getSolutions13 = getSolutions codeParser solution1 (const 0)
+
+getSolutions13 = getSolutions codeParser solution1 playGameAuto
+
 dim :: Int
 dim = 45
-autoMode = True 
+
+
+playGameAuto :: [Int] -> Int 
+playGameAuto code =  runST autoPlay
+  where 
+  autoPlay :: forall s. ST s Int 
+  autoPlay = do
+   machine <- createMachine @(STArray s)  (2 : tail code)
+   flip fix (0, 0) $ \loop (input, score) -> do
+    outputs <- getOutputs =<< runMachine [input] machine
+    state <- machineState <$> getMachineResult machine
+    if state == Halted  then return score 
+    else do  
+    -- print outputs
+          let (resList, updates) = partition (\[x, y, _] -> x == -1 && y == 0) $ chunksOf 3 outputs
+          let platformPos = case [x | [x,_,3] <- updates] of [] -> 0; f:_ -> f
+              ballPos = case  [x | [x,_,4] <- updates] of [] -> 0; f:_ -> f
+              updatedScore =  case resList of
+                [] -> score 
+                res : _ -> let [_, _, newScore] = res in newScore  
+          loop (if ballPos > platformPos then 1 else -1, updatedScore)
+
 playGame :: [Int] -> IO ()
 playGame code = do
   machine <- createMachine @IOArray (2 : tail code)
@@ -64,3 +90,4 @@ playGame code = do
     let newAr = updateGameAr updates currentAr
     putStrLn $ unlines . charGridToStr $ newAr
     loop (newAr, if ballPos > platformPos then 1 else -1, updatedScore)
+
