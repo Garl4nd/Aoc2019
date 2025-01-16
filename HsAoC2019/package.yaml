@@ -44,6 +44,7 @@ dependencies:
 - Chart-diagrams
 - gnuplot 
 - ref-fd
+- ansi-terminal
 # - regex-pcre-builtin
 
 default-extensions:
