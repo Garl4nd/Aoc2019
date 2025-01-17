@@ -62,6 +62,7 @@ library
   build-depends:
       Chart-diagrams
     , MemoTrie
+    , ansi-terminal
     , array
     , base >=4.7 && <5
     , bytestring
@@ -105,6 +106,7 @@ executable aoc24-exe
       Chart-diagrams
     , HsAoc2019
     , MemoTrie
+    , ansi-terminal
     , array
     , base >=4.7 && <5
     , bytestring
@@ -149,6 +151,7 @@ test-suite HsAoc2019-test
       Chart-diagrams
     , HsAoc2019
     , MemoTrie
+    , ansi-terminal
     , array
     , base >=4.7 && <5
     , bytestring
