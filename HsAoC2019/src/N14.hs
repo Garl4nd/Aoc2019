@@ -4,7 +4,7 @@
 module N14 (getSolutions14) where
 
 import Control.Arrow
-import Control.Monad (forM_, void)
+import Control.Monad (forM_, join, void)
 import Control.Monad.Trans.State
 import Data.Char (isAlphaNum)
 import Data.Either (fromRight)
@@ -41,8 +41,34 @@ useSupplies :: String -> Integer -> State (M.Map String Integer, M.Map String In
 useSupplies target requestedAmount = do
   (availableResources, _) <- get
   let consumedAmount = min requestedAmount (availableResources ! target)
-  modify (first (M.adjust (subtract consumedAmount) target))
+  modify . first $ M.adjust (subtract consumedAmount) target
   return $ requestedAmount - consumedAmount
+
+both :: (a -> b) -> (a, a) -> (b, b)
+both = join (***)
+
+calcResources :: ReactionMap -> String -> Integer -> State (M.Map String Integer, M.Map String Integer) ()
+calcResources reactionMap target requestedAmount = do
+  let addNewProduce amount = M.adjust (+ amount) target
+  if target == "ORE"
+    then modify . both $ addNewProduce requestedAmount
+    else do
+      amountToProduce <- useSupplies target requestedAmount
+      let Reaction{productAmount, reqs} = reactionMap ! target
+          reps = (amountToProduce + 1) `div` productAmount
+      forM_ reqs $ \(reactant, amount) -> do
+        reactantAmountToProduce <- useSupplies reactant (amount * reps)
+        calcResources reactionMap reactant reactantAmountToProduce
+        modify . first $ M.adjust (subtract reactantAmountToProduce) reactant
+      modify . both $ addNewProduce amountToProduce
+
+requiredOre :: ReactionMap -> Integer -> Integer -- (M.Map String Integer, M.Map String Integer)
+requiredOre reactionMap fuel =
+  let
+    resourceMap = M.insert "ORE" 0 $ M.map (const 0) reactionMap
+    (_, producedResources) = execState (calcResources reactionMap "FUEL" fuel) (resourceMap, resourceMap)
+   in
+    producedResources ! "ORE"
 
 binarySearch :: (Integral a) => (a -> Bool) -> a -> a -> a
 binarySearch f x0 x1
@@ -52,29 +78,6 @@ binarySearch f x0 x1
        in if f m
             then binarySearch f x0 m
             else binarySearch f m x1
-
-calcResources :: ReactionMap -> String -> Integer -> State (M.Map String Integer, M.Map String Integer) ()
-calcResources reactionMap target requestedAmount = do
-  let addNewProduce amount = M.adjust (+ amount) target
-  if target == "ORE"
-    then modify $ addNewProduce requestedAmount *** addNewProduce requestedAmount
-    else do
-      amountToProduce <- useSupplies target requestedAmount
-      let Reaction{productAmount, reqs} = reactionMap ! target
-          reps = (amountToProduce + 1) `div` productAmount
-      forM_ reqs $ \(reactant, amount) -> do
-        reactantAmountToProduce <- useSupplies reactant (amount * reps)
-        calcResources reactionMap reactant reactantAmountToProduce
-        modify (first (M.adjust (subtract reactantAmountToProduce) reactant))
-      modify $ addNewProduce amountToProduce *** addNewProduce amountToProduce
-
-requiredOre :: ReactionMap -> Integer -> Integer -- (M.Map String Integer, M.Map String Integer)
-requiredOre reactionMap fuel =
-  let
-    resourceMap = M.insert "ORE" 0 $ M.map (const 0) reactionMap
-    (_, producedResources) = execState (calcResources reactionMap "FUEL" fuel) (resourceMap, resourceMap)
-   in
-    producedResources ! "ORE"
 
 solution1 :: ReactionMap -> Integer
 solution1 = flip requiredOre 1
