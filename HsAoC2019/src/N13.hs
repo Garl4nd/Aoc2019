@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module N13 () where
+module N13 (getSolutions13) where
 
 import Control.Monad (void, when)
 import Control.Monad.ST (runST)
