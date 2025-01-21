@@ -38,14 +38,15 @@ outputToChar 1 = '.'
 outputToChar 2 = '!'
 
 bounds :: Int
-bounds = 40
+bounds = 35  
 explore :: [Int] -> IO ()
-explore code = go (0, 0) $ A.listArray ((-bounds, -bounds), (bounds, bounds)) ['?' | _ <- [-bounds .. bounds], _ <- [-bounds .. bounds]]
- where
-  go pos mazeMap = do
+explore code = do 
+  robot <- createMachine @IOArray code 
+  let 
+   go pos mazeMap = do
     clearScreen
+    print pos 
     putStrLn $ unlines . charGridToStr $ mazeMap
-    robot <- createMachine @IOArray code
     directionChar <- getChar
     let direction = charToDirection directionChar
     case direction of
@@ -58,4 +59,7 @@ explore code = go (0, 0) $ A.listArray ((-bounds, -bounds), (bounds, bounds)) ['
             updatedMap = mazeMap // [(desiredPosition, outputToChar outputCode)]
             updatedPos = if outputCode == 0 then pos else desiredPosition
         go updatedPos updatedMap
-      Nothing -> go pos mazeMap
+      Nothing -> go pos mazeMap 
+  go (0, 0) $ A.listArray ((-bounds, -bounds), (bounds, bounds)) ['?' | _ <- [-bounds .. bounds], _ <- [-bounds .. bounds]]
+ 
+
