@@ -56,11 +56,11 @@ outputToChar 2 = '!'
 bounds :: Int
 bounds = 35
 
-explore :: [Int] -> IO ()
-explore code = do
+explore :: [Int] -> CharGrid -> IO ()
+explore code mazeMap = do
   robot <- createMachine @IOArray code
   let
-    mazeMap = A.listArray ((-bounds, -bounds), (bounds, bounds)) [' ' | _ <- [-bounds .. bounds], _ <- [-bounds .. bounds]]
+    -- mazeMap = A.listArray ((-bounds, -bounds), (bounds, bounds)) [' ' | _ <- [-bounds .. bounds], _ <- [-bounds .. bounds]]
     distMap = (Inf <$ mazeMap) // [((0, 0), Dist 0)]
     go pos mazeMap currentDist distMap = do
       clearScreen
@@ -102,13 +102,14 @@ autoExplore code = do
             case valAtPos of
               Unknown -> do
                 output <- fmap head . getOutputs =<< runMachine [directionToInput dir] robot
+                print output
                 if output == 0
                   then do
                     writeArray distMap pos Inf
                     return walkableDirections
                   else do
-                    _ <- runMachine [directionToInput $ opposite dir] robot
-                    when (output == 2) $ writeRef oxygenPosRef $ Just pos
+                    void $ runMachine [directionToInput $ opposite dir] robot
+                    when (output == 2) (writeRef oxygenPosRef (Just pos) >> print (currentPos, pos, currentDist))
                     writeArray distMap pos $ addDist currentDist 1
                     return $ (pos, dir) : walkableDirections
               _ -> return walkableDirections
@@ -120,12 +121,12 @@ autoExplore code = do
     goBack = mapM_ (walk . opposite)
     go pos currentDist initialPos breadcrumbs = do
       walkables <- updateDistMapAndGetWalkables pos currentDist
-      print walkables
+      print (pos, walkables, currentDist, breadcrumbs)
       case walkables of
         [] -> goBack breadcrumbs
         [(newPos, newDir)] -> walk newDir >> go newPos (addDist currentDist 1) initialPos (newDir : breadcrumbs)
         _ -> sequence_ [walk newDir >> go newPos (addDist currentDist 1) pos [newDir] | (newPos, newDir) <- walkables]
-
+      print pos
   go (0, 0) (Dist 0) (0, 0) []
   ar <- freeze distMap
   oxygenPos <- readRef oxygenPosRef
