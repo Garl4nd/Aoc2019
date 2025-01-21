@@ -3,7 +3,7 @@
 
 module N15 () where
 
-import Control.Monad (filterM, foldM, when)
+import Control.Monad (filterM, foldM, when, unless)
 import Control.Monad.Ref (MonadRef (readRef, writeRef), newRef)
 import Data.Array ((!), (//))
 import qualified Data.Array as A
@@ -102,7 +102,7 @@ autoExplore code = do
             case valAtPos of
               Unknown -> do
                 output <- fmap head . getOutputs =<< runMachine [directionToInput dir] robot
-                print output
+                -- print output
                 if output == 0
                   then do
                     writeArray distMap pos Inf
@@ -117,17 +117,23 @@ autoExplore code = do
         []
         [U, D, L, R]
     walk :: Direction -> IO ()
-    walk dir = void $ runMachine [directionToInput dir] robot
-    goBack = mapM_ (walk . opposite)
-    go pos currentDist initialPos breadcrumbs = do
+    walk dir = do {output <- fmap head. getOutputs =<<  runMachine [directionToInput dir] robot; print output}
+    -- goBack dirs = (print "walking back") >> mapM_ (walk . opposite) dirs >> (print "done retracing")
+    go pos currentDist breadcrumbs = do
       walkables <- updateDistMapAndGetWalkables pos currentDist
       print (pos, walkables, currentDist, breadcrumbs)
-      case walkables of
-        [] -> goBack breadcrumbs
-        [(newPos, newDir)] -> walk newDir >> go newPos (addDist currentDist 1) initialPos (newDir : breadcrumbs)
-        _ -> sequence_ [walk newDir >> go newPos (addDist currentDist 1) pos [newDir] | (newPos, newDir) <- walkables]
+      sequence_ [walk newDir >> go newPos (addDist currentDist 1) [newDir] | (newPos, newDir) <- walkables]
       print pos
-  go (0, 0) (Dist 0) (0, 0) []
+      unless (null breadcrumbs) $ walk . opposite $ head breadcrumbs
+  go (0, 0) (Dist 0)  []
   ar <- freeze distMap
   oxygenPos <- readRef oxygenPosRef
   return (ar, oxygenPos)
+
+mapAndExplore :: [Int] -> IO ()
+mapAndExplore code = do 
+  (distMap, Just oxygen) <- autoExplore code 
+  let charGrid = (\case {Inf -> '#'; Unknown -> ' '; _ -> '.'}) <$> distMap 
+      charGrid' = charGrid // [((0,0), 'S'), (oxygen, '!')]
+  explore code charGrid'
+
