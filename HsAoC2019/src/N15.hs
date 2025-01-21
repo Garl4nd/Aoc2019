@@ -1,19 +1,21 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
-module N15 () where
+module N15 (getSolutions15) where
 
 import Control.Monad (filterM, foldM, when, unless)
 import Control.Monad.Ref (MonadRef (readRef, writeRef), newRef)
 import Data.Array ((!), (//))
 import qualified Data.Array as A
-import Data.Array.IO (IOArray)
+import Data.Array.IO (IOArray, thaw)
 import Data.Array.MArray (freeze, newArray, readArray, writeArray)
 import Data.Foldable (forM_)
 import Data.Functor (void)
 import IntCode
 import System.Console.ANSI
 import Useful
+import Data.Array.IO.Internals (IOArray(IOArray))
+import Data.Array.Base (thawIOArray)
 
 charToDirection :: Char -> Maybe Direction
 charToDirection = \case
@@ -54,7 +56,7 @@ outputToChar 1 = '.'
 outputToChar 2 = '!'
 
 bounds :: Int
-bounds = 35
+bounds = 25
 
 explore :: [Int] -> CharGrid -> IO ()
 explore code mazeMap = do
@@ -84,12 +86,24 @@ explore code mazeMap = do
           go updatedPos updatedMap updatedDist updatedDistMap
         Nothing -> go pos mazeMap currentDist distMap
   go (0, 0) mazeMap (Dist 0) distMap
+type DistMap = A.Array GridPos Distance 
 
-autoExplore :: [Int] -> IO (A.Array GridPos Distance, Maybe GridPos)
-autoExplore code = do
+findMaxDist  ::  GridPos -> A.Array GridPos Bool  -> Int 
+findMaxDist  initPos walkableMap  = 
+  let
+    getWalkables :: GridPos -> [GridPos] -> [GridPos]
+    getWalkables currentPos forbidden = [pos | dir <- [U, D, L, R], let pos = turn currentPos dir, pos `notElem` forbidden, walkableMap ! pos ] 
+    go pos currentDist forbidden  = let  
+      in case [go newPos (currentDist + 1) [pos]   | newPos <- getWalkables pos forbidden ] of 
+        [] -> currentDist 
+        ls -> maximum ls 
+  in go initPos 0 [] 
+
+autoExplore :: [Int] -> GridPos ->  IO (DistMap, Maybe GridPos)
+autoExplore code initPos  = do
   robot <- createMachine @IOArray code
-  distMap <- newArray @IOArray ((-bounds, -bounds), (bounds, bounds)) Unknown
-  writeArray distMap (0, 0) (Dist 0)
+  distMap <-  newArray @IOArray ((-bounds, -bounds), (bounds, bounds)) Unknown
+  writeArray distMap initPos (Dist 0)
   oxygenPosRef <- newRef Nothing
   let
     updateDistMapAndGetWalkables :: GridPos -> Distance -> IO [(GridPos, Direction)]
@@ -98,18 +112,16 @@ autoExplore code = do
         ( \walkableDirections dir -> do
             let pos = turn currentPos dir
             valAtPos <- readArray distMap pos
-            -- print (pos, valAtPos)
             case valAtPos of
               Unknown -> do
                 output <- fmap head . getOutputs =<< runMachine [directionToInput dir] robot
-                -- print output
                 if output == 0
                   then do
                     writeArray distMap pos Inf
                     return walkableDirections
                   else do
                     void $ runMachine [directionToInput $ opposite dir] robot
-                    when (output == 2) (writeRef oxygenPosRef (Just pos) >> print (currentPos, pos, currentDist))
+                    when (output == 2) (writeRef oxygenPosRef (Just pos)) 
                     writeArray distMap pos $ addDist currentDist 1
                     return $ (pos, dir) : walkableDirections
               _ -> return walkableDirections
@@ -117,22 +129,30 @@ autoExplore code = do
         []
         [U, D, L, R]
     walk :: Direction -> IO ()
-    walk dir = do {output <- fmap head. getOutputs =<<  runMachine [directionToInput dir] robot; print output}
-    -- goBack dirs = (print "walking back") >> mapM_ (walk . opposite) dirs >> (print "done retracing")
+    walk dir =  void $ runMachine [directionToInput dir] robot
     go pos currentDist breadcrumbs = do
       walkables <- updateDistMapAndGetWalkables pos currentDist
-      print (pos, walkables, currentDist, breadcrumbs)
       sequence_ [walk newDir >> go newPos (addDist currentDist 1) [newDir] | (newPos, newDir) <- walkables]
-      print pos
-      unless (null breadcrumbs) $ walk . opposite $ head breadcrumbs
-  go (0, 0) (Dist 0)  []
+      mapM_ (walk . opposite) breadcrumbs
+
+  go initPos (Dist 0)  []
   ar <- freeze distMap
   oxygenPos <- readRef oxygenPosRef
   return (ar, oxygenPos)
 
+
+solution15  :: [Int] -> IO (Int, Int) --(A.Array GridPos Distance) 
+solution15  code = do 
+  (distMap, Just oxygen) <- autoExplore code (0,0)
+  let walkableMap = (\case (Dist _) -> True ; _ -> False) <$> distMap 
+      fillTime =  findMaxDist oxygen walkableMap 
+  return (let Dist dist = distMap ! oxygen in dist , fillTime)
+
+getSolutions15 = solution15 . codeParser 
+
 mapAndExplore :: [Int] -> IO ()
 mapAndExplore code = do 
-  (distMap, Just oxygen) <- autoExplore code 
+  (distMap, Just oxygen) <- autoExplore code (0,0) 
   let charGrid = (\case {Inf -> '#'; Unknown -> ' '; _ -> '.'}) <$> distMap 
       charGrid' = charGrid // [((0,0), 'S'), (oxygen, '!')]
   explore code charGrid'
