@@ -105,35 +105,25 @@ autoExplore code initPos  = do
   distMap <-  newArray @IOArray ((-bounds, -bounds), (bounds, bounds)) Unknown
   writeArray distMap initPos (Dist 0)
   oxygenPosRef <- newRef Nothing
-  let
-    updateDistMapAndGetWalkables :: GridPos -> Distance -> IO [(GridPos, Direction)]
-    updateDistMapAndGetWalkables currentPos currentDist =
-      foldM
-        ( \walkableDirections dir -> do
-            let pos = turn currentPos dir
-            valAtPos <- readArray distMap pos
-            case valAtPos of
-              Unknown -> do
-                output <- fmap head . getOutputs =<< runMachine [directionToInput dir] robot
-                if output == 0
-                  then do
-                    writeArray distMap pos Inf
-                    return walkableDirections
-                  else do
-                    void $ runMachine [directionToInput $ opposite dir] robot
-                    when (output == 2) (writeRef oxygenPosRef (Just pos)) 
-                    writeArray distMap pos $ addDist currentDist 1
-                    return $ (pos, dir) : walkableDirections
-              _ -> return walkableDirections
-        )
-        []
-        [U, D, L, R]
+  let 
     walk :: Direction -> IO ()
     walk dir =  void $ runMachine [directionToInput dir] robot
-    go pos currentDist breadcrumbs = do
-      walkables <- updateDistMapAndGetWalkables pos currentDist
-      sequence_ [walk newDir >> go newPos (addDist currentDist 1) [newDir] | (newPos, newDir) <- walkables]
-      mapM_ (walk . opposite) breadcrumbs
+    go currentPos currentDist breadcrumbs = do
+       forM_ [U, D, L, R]
+        ( \ dir -> do
+            let pos = turn currentPos dir
+            valAtPos <- readArray distMap pos
+            when (valAtPos == Unknown) $  do
+                output <- fmap head . getOutputs =<< runMachine [directionToInput dir] robot
+                if output == 0 
+                  then do
+                    writeArray distMap pos Inf
+                  else do
+                    when (output == 2) (writeRef oxygenPosRef (Just pos)) 
+                    writeArray distMap pos $ addDist currentDist 1
+                    go pos (currentDist `addDist` 1) [dir]
+        )
+       mapM_ (walk . opposite) breadcrumbs
 
   go initPos (Dist 0)  []
   ar <- freeze distMap
