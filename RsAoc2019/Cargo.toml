@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 itertools = "0.14.0"
 libm = "0.2.11"
+nalgebra = "*"
