@@ -3,7 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
-module IntCode (createMachine, runMachine, runCodeWInputST, getMachineResult, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs) where
+module IntCode (createMachine, runMachine, runCodeWInputST, getMachineResult, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs, talkToMachine) where
 
 import Control.Monad (forM_, unless, when, (<=<), (>=>))
 import Control.Monad.Ref
@@ -16,12 +16,14 @@ import Data.Tuple (swap)
 import Debugging (traceWInfo)
 
 -- import GHC.Arr (freezeSTArray)
-
+import GHC.IOArray
+import GHC.IORef
 import Control.Monad.Fix (fix)
 import Data.Array.Base (freeze)
 import Data.Array.IO (IOArray)
 import Data.Foldable
 import Useful (splitOn)
+import Data.Char (ord, chr)
 
 codeParser :: String -> [Int]
 codeParser = map read . splitOn ','
@@ -179,3 +181,18 @@ runCodeWInputST input code = runST stCalc
  where
   stCalc :: forall s. ST s MachineResult
   stCalc = runCodeWInput @(STUArray s) input code
+
+
+talkToMachine :: [Int] -> IO ()
+talkToMachine code = do 
+  machine <- createMachine @IOArray code 
+  flip fix [] $ \loop input -> do 
+    intOutput <- getOutputs =<< runMachine input machine 
+    let strOutput = concatMap (\i -> if i <256 then chr i : "" else show i)  intOutput 
+    putStrLn strOutput 
+    state <- machineState <$> getMachineResult machine
+    unless (state == Halted) $ do 
+      strInput <-getLine  
+      let newInput = ord <$> strInput <> "\n"
+      loop newInput 
+

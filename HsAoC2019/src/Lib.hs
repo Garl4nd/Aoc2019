@@ -11,6 +11,7 @@ import N12
 import N13
 import N14
 import N15
+import N17
 import N2
 import N3
 import N4
@@ -52,7 +53,7 @@ maybeSolver day = solFunc
     14 -> stringize <$> Just getSolutions14
     15 -> stringize <$> Just getSolutions15
     -- 16 -> Just getSolutions16
-    -- 17 -> Just getSolutions17
+    17 -> stringize <$> Just getSolutions17
     -- 18 -> Just $ \filename -> do
     --   (a, b) <- getSolutions18 filename
     --   let [bx, by] = splitOn ',' b
