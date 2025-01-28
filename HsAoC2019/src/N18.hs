@@ -41,11 +41,9 @@ makeLazyGraph grid doors = LazyGraph{nodes = grid, edgeFunc = getAugEdges, bound
       [((n, newKeys), newVal) | n <- walkableNeighbors, let (newKeys, newVal) = newKeysVal n]
    where
     newKeysVal n
-      | grid ! n == '.' = (keys, Dist 1)
       | let val = grid ! n, isAsciiLower val = (keys .|. encode val, Dist 1)
       | let val = grid ! n, val `elem` doors = (keys, if keys .&. (encode $ toLower val) == 0 then Inf else Dist 1)
-      | grid ! n == '@' = (keys, Dist 1)
-      | otherwise = undefined
+      | otherwise = (keys, Dist 1)
   inBounds = A.inRange bounds
   bounds@(minBound, maxBound) = A.bounds grid
 
@@ -70,7 +68,7 @@ solution1 charGrid =
     keyPos = [pos | pos <- A.indices charGrid, isAsciiLower (charGrid ! pos)]
     keyChars = [val | val <- A.elems charGrid, isAsciiLower val]
     doorChars = [val | val <- A.elems charGrid, isAsciiUpper val]
-    maxVal :: Int = shiftL (encode (maximum keyChars)) 1 - 1
+    maxVal :: Int = foldl1 (.|.) (encode <$> keyChars)
     targets = [(key, maxVal) | key <- keyPos]
     distMap = distanceMap $ runDijkstra @(M.Map AugPos Distance) (makeLazyGraph charGrid doorChars) (start, 0) targets
    in
@@ -79,7 +77,7 @@ solution1 charGrid =
 modGrids :: CharGrid -> [CharGrid] -- M.Map AugPos Distance --  DijkstraState AugPos (M.Map AugPos Distance)
 modGrids charGrid = gridParts
  where
-  gridParts = [A.listArray ((1, 1), (newH - 1, newW - 1)) [modifiedGrid ! (y, x) | y <- [offsetY .. offsetY + newH - 2], x <- [offsetX .. offsetX + newW - 2]] | offsetY <- [1, newH + 1], offsetX <- [1, newW + 1]]
+  gridParts = [A.listArray ((1, 1), (newH, newW)) [modifiedGrid ! (y, x) | y <- [offsetY .. offsetY + newH - 1], x <- [offsetX .. offsetX + newW - 1]] | offsetY <- [1, fst center + 1], offsetX <- [1, snd center + 1]]
   modifiedGrid = (charGrid A.// [((y, x), '@') | (y, x) <- neighbors8 center]) A.// [((y, x), '#') | (y, x) <- center : neighbors4 center]
   center = (newH + 1, newW + 1)
   newH = h `div` 2
@@ -87,14 +85,7 @@ modGrids charGrid = gridParts
   (_, (h, w)) = A.bounds charGrid
 
 solution2 :: CharGrid -> Distance -- M.Map AugPos Distance --  DijkstraState AugPos (M.Map AugPos Distance)
-solution2 charGrid = foldr (\gridPart acc -> addDists acc (solution1 gridPart)) (Dist 0) gridParts
- where
-  gridParts = [A.listArray ((1, 1), (newH, newW)) [modifiedGrid ! (y, x) | y <- [offsetY .. offsetY + newH], x <- [offsetX .. offsetX + newW]] | offsetY <- [1, newH + 1], offsetX <- [1, newW + 1]]
-  modifiedGrid = (charGrid A.// [((y, x), '@') | (y, x) <- neighbors8 center]) A.// [((y, x), '#') | (y, x) <- center : neighbors4 center]
-  center = (newH + 1, newW + 1)
-  newH = h `div` 2
-  newW = w `div` 2
-  (_, (h, w)) = A.bounds charGrid
+solution2 charGrid = foldr (\gridPart acc -> addDists acc (solution1 gridPart)) (Dist 0) (modGrids charGrid)
 
 -- res :: CharGrid -> AugPos -> DijkstraState AugPos (M.Map AugPos Distance)
 -- res charGrid end =
