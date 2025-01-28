@@ -1,111 +1,82 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TypeApplications #-}
 
-module N18 (getSolutions18) where
+module N18 () where
 
-import Control.Arrow
-import Control.Monad ((>=>))
-import Data.Array ((!), (//))
+import Control.Monad
+import Data.Array ((!))
 import qualified Data.Array as A
-import Data.Maybe (fromJust)
-import Data.Tuple (swap)
-import GraphUtils (ArrayGraph, Distance (Dist, Inf), DistanceMap, bestPathsAr, distanceMap, distanceToInt, runDijkstra)
-import Useful (CharGrid, GridPos, neighbors4, saveGridToFile, wordsWhen)
+import Data.Array.ST
+import Data.Bits
+import Data.Char
+import Data.List (find)
+import qualified Data.Map as M
+import Data.Maybe (fromMaybe)
+import qualified Data.Set as S
+import GraphUtils
+import Useful
 
-parseFile :: String -> [GridPos]
-parseFile file = coordsList
+-- runDijkstraST :: forall graph node. (Show node, LabeledGraph graph node) => graph -> node -> [node] -> DijkstraState node
+type Key = Char
+type Encoding = Int
+type AugPos = (GridPos, Encoding)
+type AugGraph = ArrayGraph AugPos
+type LazySetGraph = LazyGraph CharGrid AugPos
+
+grid :: A.Array GridPos Int
+grid = A.array ((0, 0), (10, 10)) [((y, x), 0) | y <- [0 .. 9], x <- [0 .. 9]]
+makeLazyGraphOrd :: A.Array GridPos e -> LazyGraph (A.Array GridPos e) GridPos
+makeLazyGraphOrd grid = LazyGraph{nodes = grid, edgeFunc = getAugEdges, bounds = A.bounds grid}
  where
-  coordsList = map parseCoords . lines $ file
-  parseCoords line = let [x, y] = map read . wordsWhen (== ',') $ line in (y, x)
+  getAugEdges pos = [(n, Dist 1) | n <- neighbors4 pos]
 
-dims :: (Int, Int)
-dims = (70, 70)
-
-makeGrid :: Int -> [GridPos] -> CharGrid
-makeGrid n coordsList = A.accumArray (const id) '.' ((0, 0), dims) [(coords, '#') | coords <- take (n + 1) coordsList]
-
-makeGraph :: CharGrid -> ArrayGraph GridPos
-makeGraph charGrid = A.array bounds edgeAssocs
+makeLazyGraph :: CharGrid -> LazySetGraph
+makeLazyGraph grid = LazyGraph{nodes = grid, edgeFunc = getAugEdges, bounds = ((minBound, 0), (maxBound, shiftL 1 26))}
  where
-  bounds = A.bounds charGrid
-  edgeAssocs = map makeEdges $ A.indices charGrid
-  makeEdges pos = (pos, if not (valid pos) then [] else [(nei, 1) | nei <- neighbors4 pos, valid nei])
-  valid pos' = A.inRange bounds pos' && charGrid ! pos' /= '#'
+  getAugEdges (pos, keys) =
+    let
+      walkableNeighbors = [n | n <- neighbors4 pos, inBounds n && grid ! n /= '#']
+     in
+      [((n, newKeys), newVal) | n <- walkableNeighbors, let (newKeys, newVal) = newKeysVal n]
+   where
+    newKeysVal n
+      | grid ! n == '.' = (keys, Dist 1)
+      | let val = grid ! n, isAsciiLower val = (keys .|. encode val, Dist 1)
+      | let val = grid ! n, isAsciiUpper val = (keys, if keys .&. (encode $ toLower val) == 0 then Inf else Dist 1)
+      | grid ! n == '@' = (keys, Dist 1)
+      | otherwise = undefined
+  inBounds = A.inRange bounds
+  bounds@(minBound, maxBound) = A.bounds grid
 
-type Path = [GridPos]
+encode c = shiftL 1 (ord c - ord 'a')
 
-solveForN :: Int -> [GridPos] -> Distance
-solveForN n coordsList = distMap ! dims
+makeGraph :: CharGrid -> AugGraph -- LazyGraph (M.Map node) node
+makeGraph grid = runSTArray $ do
+  ar <- newArray ((minPos, 0), (maxPos, 2 ^ 26)) []
+  forM_ passableBlocks $ \block -> do
+    let neighbors = neighbors4 block
+
+    return ()
+  return ar
  where
-  distMap :: A.Array GridPos Distance
-  distMap = distanceMap $ runDijkstra graph (0, 0) [dims]
-  graph = makeGraph . makeGrid n $ coordsList
+  (minPos, maxPos) = A.bounds grid
+  passableBlocks = [pos | pos <- A.indices grid, grid ! pos /= '#']
 
-solution1 :: [GridPos] -> Int
-solution1 = distanceToInt . solveForN 1024
-
-binarySearch :: (Show a) => (a -> Bool) -> [a] -> Maybe a
-binarySearch _ [] = Nothing
-binarySearch p [x] = if p x then Just x else Nothing
-binarySearch p ls@(s : rest)
-  | p s = Just s
-  | otherwise = if p mid then binarySearch p (left ++ [mid]) else binarySearch p (mid : right)
- where
-  nHalf = length ls `div` 2 - 1
-  (left, mid : right) = splitAt nHalf rest
-
-solution2 :: [GridPos] -> String
-solution2 coordsList = let (y, x) = coordsList !! n in show x <> "," <> show y
- where
-  n = fromJust . binarySearch (not . isSolvable) $ [0 .. length coordsList - 1]
-  isSolvable n = solveForN n coordsList /= Inf
-
--- >>> solution2 . parseFile <$> readFile "inputs/18.txt"
--- <stderr>: hPutChar: invalid argument (cannot encode character '\8216')
-
-getDists :: CharGrid -> DistanceMap GridPos
-getDists charGrid = distMap
- where
-  distMap :: A.Array GridPos Distance
-  distMap = distanceMap $ runDijkstra graph (0, 0) [dims]
-  graph = makeGraph charGrid
-
-getSolutions18 :: String -> IO (Int, String)
-getSolutions18 = readFile >=> (parseFile >>> (solution1 &&& solution2) >>> return)
-
-saveGraphPaths :: String -> Int -> String -> IO ()
-saveGraphPaths outputFile n inputFile = do
-  coordList <- parseFile <$> readFile inputFile
-  let paths = bestPathsForN n coordList
-      grid = makeGrid n coordList
-      filledGrid = grid // ((coordList !! n, 'N') : [(pos, toEnum (fromEnum '0' + id)) | (path, id) <- zip paths [1 ..], pos <- path])
-  saveGridToFile outputFile filledGrid
-
-bestPathsForN :: Int -> [GridPos] -> [Path]
-bestPathsForN n coordsList =
+solution :: CharGrid -> Distance -- M.Map AugPos Distance --  DijkstraState AugPos (M.Map AugPos Distance)
+solution charGrid =
   let
-    graph = makeGraph . makeGrid n $ coordsList
+    Just start = find (\pos -> charGrid ! pos == '@') $ A.indices charGrid
+    keys = [pos | pos <- A.indices charGrid, isAsciiLower (charGrid ! pos)]
+    letters = [val | val <- A.elems charGrid, isAsciiLower val]
+    maxVal :: Int = shiftL (encode (maximum letters)) 1 - 1
+    targets = [(key, maxVal) | key <- keys]
+    distMap = distanceMap $ runDijkstra @(M.Map AugPos Distance) (makeLazyGraph charGrid) (start, 0) targets
    in
-    bestPathsAr graph (0, 0) dims
+    minimum $ [val | pos <- targets, let val = fromMaybe Inf $ M.lookup pos distMap]
 
--- import Useful
--- import GraphUtils
--- import qualified Data.Array as A
--- import Data.Array ((!))
--- import Data.Array.ST
--- import Control.Monad
--- -- runDijkstraST :: forall graph node. (Show node, LabeledGraph graph node) => graph -> node -> [node] -> DijkstraState node
--- type Key = Char
--- type Encoding = Int
--- type AugPos = (GridPos, Encoding)
--- type AugGraph = ArrayGraph AugPos
---
--- makeGraph:: CharGrid -> AugGraph
--- makeGraph grid = runSTArray $ do
---     ar <- newArray ((minPos, 0), (maxPos,2^26)) []
---     forM_ passableBlocks $ \block -> do
---       let neighbors = neighbors4 block
---
---       return ()
---     return ar where
---       (minPos, maxPos) = A.bounds grid
---       passableBlocks = [pos | pos <- A.indices grid, grid ! pos /= '#']
+res :: CharGrid -> AugPos -> DijkstraState AugPos (M.Map AugPos Distance)
+res charGrid end =
+  let
+    Just start = find (\pos -> charGrid ! pos == '@') $ A.indices charGrid
+   in
+    runDijkstra (makeLazyGraph charGrid) (start, 0) [end]
