@@ -182,6 +182,18 @@ runCodeWInputST input code = runST stCalc
   stCalc :: forall s. ST s MachineResult
   stCalc = runCodeWInput @(STUArray s) input code
 
+runProgramIO :: [Int] -> IO ()
+runProgramIO code = do 
+  machine <- createMachine @IOArray code 
+  flip fix [] $ \loop input -> do 
+    output <- getOutputs =<< runMachine input machine 
+    putStrLn $ "output = " <> show output
+    state <- machineState <$> getMachineResult machine
+    unless (state == Halted) $ do 
+      print "Write your input:"
+      strInput <-getLine  
+      let newInput = [read strInput] 
+      loop newInput 
 
 talkToMachine :: [Int] -> IO ()
 talkToMachine code = do 
@@ -195,4 +207,3 @@ talkToMachine code = do
       strInput <-getLine  
       let newInput = ord <$> strInput <> "\n"
       loop newInput 
-

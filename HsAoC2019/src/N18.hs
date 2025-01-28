@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- to solve Part 2: Split into 4 parts and modify the edge function for each part so as to ignore doors that are not present in that part. The result is the sum for each part
-module N18 () where
+module N18 (getSolutions18) where
 
 import Control.Monad
 import Data.Array ((!))
@@ -67,7 +67,7 @@ solution1 charGrid =
     Just start = find (\pos -> charGrid ! pos == '@') $ A.indices charGrid
     keyPos = [pos | pos <- A.indices charGrid, isAsciiLower (charGrid ! pos)]
     keyChars = [val | val <- A.elems charGrid, isAsciiLower val]
-    doorChars = [val | val <- A.elems charGrid, isAsciiUpper val]
+    doorChars = toUpper <$> keyChars -- [val | val <- A.elems charGrid, isAsciiUpper val]
     maxVal :: Int = foldl1 (.|.) (encode <$> keyChars)
     targets = [(key, maxVal) | key <- keyPos]
     distMap = distanceMap $ runDijkstra @(M.Map AugPos Distance) (makeLazyGraph charGrid doorChars) (start, 0) targets
@@ -86,7 +86,7 @@ modGrids charGrid = gridParts
 
 solution2 :: CharGrid -> Distance -- M.Map AugPos Distance --  DijkstraState AugPos (M.Map AugPos Distance)
 solution2 charGrid = foldr (\gridPart acc -> addDists acc (solution1 gridPart)) (Dist 0) (modGrids charGrid)
-
+getSolutions18 = getSolutions strToCharGrid solution1 solution2 
 -- res :: CharGrid -> AugPos -> DijkstraState AugPos (M.Map AugPos Distance)
 -- res charGrid end =
 --   let
