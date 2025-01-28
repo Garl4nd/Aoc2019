@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 
-module GraphUtils (runDijkstra, DistanceMap, DijkstraState (..), distanceMap, bronKerbosch, addDist, distanceToInt, bestPaths, bestPathsAr, LabeledGraph, ArrayGraph, LazyGraph (..), Distance (Dist, Inf), Num, DistanceMap, Path) where
+module GraphUtils (runDijkstra, DistanceMap, DijkstraState (..), distanceMap, addDists, bronKerbosch, addDist, distanceToInt, bestPaths, bestPathsAr, LabeledGraph, ArrayGraph, LazyGraph (..), Distance (Dist, Inf), Num, DistanceMap, Path) where
 
 -- , unsafeThaw)
 import Control.Monad (forM, forM_)
