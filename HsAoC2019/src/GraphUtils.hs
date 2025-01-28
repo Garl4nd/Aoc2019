@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 
-module GraphUtils (runDijkstraSTG, bronKerbosch, addDist, distanceToInt, bestPaths, LabeledGraph, ArrayGraph, Distance (Dist, Inf), Num, DistanceMap, Path) where
+module GraphUtils (runDijkstra, DistanceMap, distanceMap, bronKerbosch, addDist, distanceToInt, bestPaths, bestPathsAr, LabeledGraph, ArrayGraph, Distance (Dist, Inf), Num, DistanceMap, Path) where
 
 -- , unsafeThaw)
 import Control.Monad (forM, forM_)
@@ -82,22 +82,6 @@ addDist :: Distance -> NumType -> Distance
 addDist (Dist x) y = Dist (x + y)
 addDist _ _ = Inf
 
---
--- data DijkstraState node = DijkstraState
---   { finalStates :: S.Set node
---   , distanceMap :: DistanceMap node
---   , nodeQueue :: H.MinPrioHeap Distance node
---   , dests :: S.Set node
---   }
---   deriving (Show)
---
--- data DijkstraStateST node s = DijkstraStateST
---   { finalStatesST :: S.Set node
---   , distanceMapST :: DistanceMapST node s
---   , nodeQueueST :: H.MinPrioHeap Distance node
---   , destsST :: S.Set node
---   }
---
 class DistanceMapClass dm node where
   type STDistMap s node dm = r | r -> node dm
   new :: (node, node) -> ST s (STDistMap s node dm)
@@ -122,60 +106,23 @@ instance (Ord node) => DistanceMapClass (M.Map node Distance) node where
   writeVal distMapRef at val = modifySTRef distMapRef (M.insert at val)
   unST stCalc = runST $ stCalc >>= readSTRef
 
-data (DistanceMapClass dm node) => DijkstraStateG node dm = DijkstraStateG
-  { finalStatesG :: S.Set node
-  , distanceMapG :: dm
-  , nodeQueueG :: H.MinPrioHeap Distance node
-  , destsG :: S.Set node
+data (DistanceMapClass dm node) => DijkstraState node dm = DijkstraState
+  { finalStates :: S.Set node
+  , distanceMap :: dm
+  , nodeQueue :: H.MinPrioHeap Distance node
+  , dests :: S.Set node
   }
 
-data (DistanceMapClass dm node) => DijkstraStateSTG node dm s = DijkstraStateSTG
-  { finalStatesSTG :: S.Set node
-  , distanceMapSTG :: STDistMap s node dm
-  , nodeQueueSTG :: H.MinPrioHeap Distance node
-  , destsSTG :: S.Set node
+data (DistanceMapClass dm node) => DijkstraStateST node dm s = DijkstraStateST
+  { finalStatesST :: S.Set node
+  , distanceMapST :: STDistMap s node dm
+  , nodeQueueST :: H.MinPrioHeap Distance node
+  , destsST :: S.Set node
   }
 
--- dijkstraLoop :: forall node graph s. (Show node, LabeledGraph graph node) => graph -> ST s (DijkstraStateST node s) -> ST s (DijkstraStateST node s)
--- dijkstraLoop graph dsST = do
---   ds@DijkstraStateST{finalStatesST = fs, distanceMapST = dm, nodeQueueST = nq, destsST = dsts} <- dsST
---   if S.null dsts
---     then
---       dsST -- return ds
---     else case H.view nq of
---       Nothing -> dsST -- return ds
---       Just (distNode, nq') -> processNode distNode
---        where
---         processNode :: (Distance, node) -> ST s (DijkstraStateST node s)
---         processNode (_, minNode)
---           | S.member minNode fs = dijkstraLoop graph (return $ ds{nodeQueueST = nq'})
---         processNode (dist, minNode) = do
---           let candidateList = [(neighbor, newDist) | (neighbor, edgeVal) <- getEdges graph minNode, S.notMember neighbor fs, let newDist = addDist dist edgeVal]
---           currentDists <- forM candidateList (\(neigh, _) -> readArray dm neigh)
---           let updateList = [(neighbor, newDist) | ((neighbor, newDist), currentDist) <- zip candidateList currentDists, newDist <= currentDist]
---               updatedQueue = foldl' (\q (node, dist') -> H.insert (dist', node) q) nq' updateList
---           forM_ updateList $ \(pos, newDist) -> writeArray dm pos newDist
---           dijkstraLoop graph (return $ ds{finalStatesST = S.insert minNode fs, distanceMapST = dm, nodeQueueST = updatedQueue, destsST = S.delete minNode dsts})
---
--- runDijkstraST :: forall graph node. (Show node, LabeledGraph graph node) => graph -> node -> [node] -> DijkstraState node
--- runDijkstraST graph start ends = extractFromST $ dijkstraLoop graph initState
---  where
---   extractFromST :: (forall s. ST s (DijkstraStateST node s)) -> DijkstraState node
---   extractFromST stRes = DijkstraState{finalStates = fs, distanceMap = dm, nodeQueue = nq, dests = dst}
---    where
---     dm = runSTArray $ distanceMapST <$> stRes
---     (fs, nq, dst) = runST $ do
---       DijkstraStateST{destsST = dst, nodeQueueST = nq', finalStatesST = fs'} <- stRes
---       return (fs', nq', dst)
---   initState :: ST s (DijkstraStateST node s)
---   initState = do
---     stAr <- newArray (getBounds graph) Inf
---     writeArray stAr start $ Dist 0
---     return DijkstraStateST{finalStatesST = S.empty, distanceMapST = stAr, nodeQueueST = H.singleton (Dist 0, start), destsST = S.fromList ends} -- runDijkstraSTLow graph start ends
---
-dijkstraLoopG :: forall node graph s dstMap. (Show node, LabeledGraph graph node, DistanceMapClass dstMap node) => graph -> ST s (DijkstraStateSTG node dstMap s) -> ST s (DijkstraStateSTG node dstMap s)
-dijkstraLoopG graph dsST = do
-  ds@DijkstraStateSTG{finalStatesSTG = fs, distanceMapSTG = dm, nodeQueueSTG = nq, destsSTG = dsts} <- dsST
+dijkstraLoop :: forall node graph s dstMap. (Show node, LabeledGraph graph node, DistanceMapClass dstMap node) => graph -> ST s (DijkstraStateST node dstMap s) -> ST s (DijkstraStateST node dstMap s)
+dijkstraLoop graph dsST = do
+  ds@DijkstraStateST{finalStatesST = fs, distanceMapST = dm, nodeQueueST = nq, destsST = dsts} <- dsST
   if S.null dsts
     then
       dsST -- return ds
@@ -183,32 +130,32 @@ dijkstraLoopG graph dsST = do
       Nothing -> dsST -- return ds
       Just (distNode, nq') -> processNode distNode
        where
-        processNode :: (Distance, node) -> ST s (DijkstraStateSTG node dstMap s)
+        processNode :: (Distance, node) -> ST s (DijkstraStateST node dstMap s)
         processNode (_, minNode)
-          | S.member minNode fs = dijkstraLoopG graph (return $ ds{nodeQueueSTG = nq'})
+          | S.member minNode fs = dijkstraLoop graph (return $ ds{nodeQueueST = nq'})
         processNode (dist, minNode) = do
           let candidateList = [(neighbor, newDist) | (neighbor, edgeVal) <- getEdges graph minNode, S.notMember neighbor fs, let newDist = addDist dist edgeVal]
           currentDists <- forM candidateList (\(neigh, _) -> readVal dm neigh)
           let updateList = [(neighbor, newDist) | ((neighbor, newDist), currentDist) <- zip candidateList currentDists, newDist <= currentDist]
               updatedQueue = foldl' (\q (node, dist') -> H.insert (dist', node) q) nq' updateList
           forM_ updateList $ \(pos, newDist) -> writeVal dm pos newDist
-          dijkstraLoopG graph (return $ ds{finalStatesSTG = S.insert minNode fs, distanceMapSTG = dm, nodeQueueSTG = updatedQueue, destsSTG = S.delete minNode dsts})
+          dijkstraLoop graph (return $ ds{finalStatesST = S.insert minNode fs, distanceMapST = dm, nodeQueueST = updatedQueue, destsST = S.delete minNode dsts})
 
-runDijkstraSTG :: forall graph node dm. (Show node, LabeledGraph graph node, DistanceMapClass dm node) => graph -> node -> [node] -> DijkstraStateG node dm
-runDijkstraSTG graph start ends = extractFromST $ dijkstraLoopG graph initState
+runDijkstra :: forall graph node dm. (Show node, LabeledGraph graph node, DistanceMapClass dm node) => graph -> node -> [node] -> DijkstraState node dm
+runDijkstra graph start ends = extractFromST $ dijkstraLoop graph initState
  where
-  extractFromST :: (forall s. ST s (DijkstraStateSTG node dm s)) -> DijkstraStateG node dm
-  extractFromST stRes = DijkstraStateG{finalStatesG = fs, distanceMapG = dmRes, nodeQueueG = nq, destsG = dst}
+  extractFromST :: (forall s. ST s (DijkstraStateST node dm s)) -> DijkstraState node dm
+  extractFromST stRes = DijkstraState{finalStates = fs, distanceMap = dmRes, nodeQueue = nq, dests = dst}
    where
-    dmRes = unST $ distanceMapSTG <$> stRes
+    dmRes = unST $ distanceMapST <$> stRes
     (fs, nq, dst) = runST $ do
-      DijkstraStateSTG{destsSTG = dst, nodeQueueSTG = nq', finalStatesSTG = fs'} <- stRes
+      DijkstraStateST{destsST = dst, nodeQueueST = nq', finalStatesST = fs'} <- stRes
       return (fs', nq', dst)
-  initState :: ST s (DijkstraStateSTG node dm s)
+  initState :: ST s (DijkstraStateST node dm s)
   initState = do
     distMapSt <- new (getBounds graph)
     writeVal distMapSt start $ Dist 0
-    return DijkstraStateSTG{finalStatesSTG = S.empty, distanceMapSTG = distMapSt, nodeQueueSTG = H.singleton (Dist 0, start), destsSTG = S.fromList ends} -- runDijkstraSTLow graph start ends
+    return DijkstraStateST{finalStatesST = S.empty, distanceMapST = distMapSt, nodeQueueST = H.singleton (Dist 0, start), destsST = S.fromList ends} -- runDijkstraSTLow graph start ends
 
 type Path node = [node]
 
@@ -229,7 +176,7 @@ bestPaths graph start end = if getVal distMap end == Inf then [] else reverse <$
           [pos : path | path <- concatMap go departureNodes]
   reversedGraph = graph -- actually reverse for directed graphs
   distMap :: dm
-  distMap = distanceMapG $ runDijkstraSTG graph start [end] -- getCompleteDistMap ar
+  distMap = distanceMap $ runDijkstra graph start [end] -- getCompleteDistMap ar
 
 bronKerbosch :: forall graph node. (UnlabeledGraph graph node, Ord node) => graph -> S.Set (S.Set node)
 bronKerbosch graph = go S.empty (verticesU graph) S.empty
