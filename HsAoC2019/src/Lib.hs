@@ -4,6 +4,7 @@ module Lib (
   maybeSolver,
 ) where
 
+import GraphUtils (Distance)
 import N1
 import N10
 import N11
@@ -13,6 +14,7 @@ import N14
 import N15
 import N17
 import N18
+import N19
 import N2
 import N3
 import N4
@@ -21,7 +23,6 @@ import N6
 import N7
 import N8
 import N9
-import GraphUtils (Distance)
 
 class SolutionResult a where
   showRes :: a -> String
@@ -34,8 +35,8 @@ instance SolutionResult Integer where
 
 instance SolutionResult String where
   showRes = id
-instance SolutionResult Distance where 
-  showRes = show 
+instance SolutionResult Distance where
+  showRes = show
 
 maybeSolver :: Int -> Maybe (String -> IO (String, String))
 maybeSolver day = solFunc
@@ -58,11 +59,8 @@ maybeSolver day = solFunc
     15 -> stringize <$> Just getSolutions15
     -- 16 -> Just getSolutions16
     17 -> stringize <$> Just getSolutions17
-    18 -> stringize <$> Just getSolutions18 
-    --   (a, b) <- getSolutions18 filename
-    --   let [bx, by] = splitOn ',' b
-    --   return (a, read $ bx <> by)
-    -- 19 -> Just getSolutions19
+    18 -> stringize <$> Just getSolutions18
+    19 -> stringize <$> Just getSolutions19
     -- 20 -> Just getSolutions20
     -- 21 -> Just getSolutions21
     -- 22 -> Just getSolutions22

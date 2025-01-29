@@ -72,7 +72,7 @@ solution1 charGrid =
     targets = [(key, maxVal) | key <- keyPos]
     distMap = distanceMap $ runDijkstra @(M.Map AugPos Distance) (makeLazyGraph charGrid doorChars) (start, 0) targets
    in
-    minimum $ [val | pos <- targets, let val = fromMaybe Inf $ M.lookup pos distMap]
+    minimum $ [fromMaybe Inf $ M.lookup pos distMap | pos <- targets]
 
 modGrids :: CharGrid -> [CharGrid] -- M.Map AugPos Distance --  DijkstraState AugPos (M.Map AugPos Distance)
 modGrids charGrid = gridParts
@@ -86,7 +86,8 @@ modGrids charGrid = gridParts
 
 solution2 :: CharGrid -> Distance -- M.Map AugPos Distance --  DijkstraState AugPos (M.Map AugPos Distance)
 solution2 charGrid = foldr (\gridPart acc -> addDists acc (solution1 gridPart)) (Dist 0) (modGrids charGrid)
-getSolutions18 = getSolutions strToCharGrid solution1 solution2 
+getSolutions18 = getSolutions strToCharGrid solution1 solution2
+
 -- res :: CharGrid -> AugPos -> DijkstraState AugPos (M.Map AugPos Distance)
 -- res charGrid end =
 --   let
