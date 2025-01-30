@@ -3,7 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
-module IntCode (createMachine, runMachine, runCodeWInputST, getMachineResult, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs, talkToMachine) where
+module IntCode (createMachine, runMachine, runCodeWInputST, getMachineResult, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs, runProgramIO, talkToMachine) where
 
 import Control.Monad (forM_, unless, when, (<=<), (>=>))
 import Control.Monad.Ref
