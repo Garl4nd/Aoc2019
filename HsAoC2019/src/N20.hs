@@ -25,7 +25,7 @@ makeGraph tileArray = A.array (A.bounds tileArray) $ makeEdges <$> A.assocs tile
 
 -- data LazyGraph ctx node = LazyGraph {nodes :: ctx, edgeFunc :: node -> Edges node, bounds :: (node, node)}
 makeGraph2 :: TileArray -> LazyGraph AugPos 
-makeGraph2 tileArray = LazyGraph {edgeFunc = getEdges, bounds = ((minBounds, 0), (maxBounds, 1000))} where 
+makeGraph2 tileArray = LazyGraph {edgeFunc = getEdges, bounds = ((minBounds, 0), (maxBounds, 200))} where 
   bounds@(minBounds, maxBounds@(yMax, xMax)) = A.bounds tileArray 
   inBounds = A.inRange bounds  
   freeNeighbors pos = [nei | nei <- neighbors4 pos, inBounds nei, tileArray ! nei /= Blocked] 
@@ -70,6 +70,6 @@ shortestPath2 tileAr = let
   graph = makeGraph2 tileAr 
   [startPos] = [pos | (pos, Portal "AA") <- A.assocs tileAr] 
   [endPos] =   [pos | (pos, Portal "ZZ") <- A.assocs tileAr] 
-  in (distanceMap $ runDijkstra @(M.Map AugPos Distance) graph  (startPos, 0 :: Int) [(endPos,0)]) M.! (endPos, 0) 
+  in (distanceMap $ runDijkstra @(A.Array AugPos Distance) graph  (startPos, 0 :: Int) [(endPos,0)]) ! (endPos, 0) 
 
 getSolutions20 = getSolutions parseFile shortestPath shortestPath2
