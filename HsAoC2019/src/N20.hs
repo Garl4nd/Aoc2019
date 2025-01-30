@@ -25,7 +25,8 @@ makeGraph tileArray = A.array (A.bounds tileArray) $ makeEdges <$> A.assocs tile
 
 -- data LazyGraph ctx node = LazyGraph {nodes :: ctx, edgeFunc :: node -> Edges node, bounds :: (node, node)}
 makeGraph2 :: TileArray -> LazyGraph AugPos 
-makeGraph2 tileArray = LazyGraph {edgeFunc = getEdges, bounds = ((minBounds, 0), (maxBounds, 200))} where 
+makeGraph2 tileArray = LazyGraph {edgeFunc = getEdges, bounds = ((minBounds, 0), (maxBounds, innerPortalNum))} where 
+  innerPortalNum = length [() | (pos, Portal _) <- A.assocs tileArray, (not . isOuterLevel) pos  ]
   bounds@(minBounds, maxBounds@(yMax, xMax)) = A.bounds tileArray 
   inBounds = A.inRange bounds  
   freeNeighbors pos = [nei | nei <- neighbors4 pos, inBounds nei, tileArray ! nei /= Blocked] 
@@ -33,7 +34,7 @@ makeGraph2 tileArray = LazyGraph {edgeFunc = getEdges, bounds = ((minBounds, 0),
   getEdges augPos@(pos, level)
     | tileArray ! pos == Free = [((nei, level), Dist 1) | nei <- freeNeighbors pos]
     | Portal portalName <- tileArray ! pos = [((nei, level), Dist 1) | nei <- freeNeighbors pos] ++ 
-      (if level == 0 && isOuterLevel pos then []  else [((nei, level + levelDif), Dist 1) | (nei, levelDif) <- portalPartnersAug pos portalName  ])
+      (if level == 0 && isOuterLevel pos || level == innerPortalNum && (not . isOuterLevel) pos then []  else [((nei, level + levelDif), Dist 1) | (nei, levelDif) <- portalPartnersAug pos portalName  ])
   portalPartnersAug portalPos portalName =  [(portalPos', if isOuterLevel portalPos then -1 else 1) | (portalPos', Portal portalName') <- A.assocs tileArray, portalPos /= portalPos', portalName == portalName'] 
 
 parseFile :: String -> TileArray 
