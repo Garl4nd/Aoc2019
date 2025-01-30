@@ -16,14 +16,15 @@ import Data.Tuple (swap)
 import Debugging (traceWInfo)
 
 -- import GHC.Arr (freezeSTArray)
-import GHC.IOArray
-import GHC.IORef
+
 import Control.Monad.Fix (fix)
 import Data.Array.Base (freeze)
 import Data.Array.IO (IOArray)
+import Data.Char (chr, ord)
 import Data.Foldable
+import GHC.IOArray
+import GHC.IORef
 import Useful (splitOn)
-import Data.Char (ord, chr)
 
 codeParser :: String -> [Int]
 codeParser = map read . splitOn ','
@@ -183,27 +184,27 @@ runCodeWInputST input code = runST stCalc
   stCalc = runCodeWInput @(STUArray s) input code
 
 runProgramIO :: [Int] -> IO ()
-runProgramIO code = do 
-  machine <- createMachine @IOArray code 
-  flip fix [] $ \loop input -> do 
-    output <- getOutputs =<< runMachine input machine 
+runProgramIO code = do
+  machine <- createMachine @IOArray code
+  flip fix [] $ \loop input -> do
+    output <- getOutputs =<< runMachine input machine
     putStrLn $ "output = " <> show output
     state <- machineState <$> getMachineResult machine
-    unless (state == Halted) $ do 
+    unless (state == Halted) $ do
       print "Write your input:"
-      strInput <-getLine  
-      let newInput = [read strInput] 
-      loop newInput 
+      strInput <- getLine
+      let newInput = [read strInput]
+      loop newInput
 
 talkToMachine :: [Int] -> IO ()
-talkToMachine code = do 
-  machine <- createMachine @IOArray code 
-  flip fix [] $ \loop input -> do 
-    intOutput <- getOutputs =<< runMachine input machine 
-    let strOutput = concatMap (\i -> if i <256 then chr i : "" else show i)  intOutput 
-    putStrLn strOutput 
+talkToMachine code = do
+  machine <- createMachine @IOArray code
+  flip fix [] $ \loop input -> do
+    intOutput <- getOutputs =<< runMachine input machine
+    let strOutput = concatMap (\i -> if i < 256 then chr i : "" else show i) intOutput
+    putStrLn strOutput
     state <- machineState <$> getMachineResult machine
-    unless (state == Halted) $ do 
-      strInput <-getLine  
+    unless (state == Halted) $ do
+      strInput <- getLine
       let newInput = ord <$> strInput <> "\n"
-      loop newInput 
+      loop newInput
