@@ -1,4 +1,5 @@
-module N20 () where 
+{-# LANGUAGE TypeApplications #-}
+module N20 (getSolutions20) where 
 import Useful 
 import GraphUtils 
 import qualified Data.Array as A 
@@ -6,10 +7,11 @@ import Data.Array ((!))
 import Data.Array.ST (runSTArray, MArray (newArray), writeArray)
 import Control.Monad (forM_)
 import Data.Char (isAsciiUpper)
+import qualified Data.Map as M
 
 data Tile = Free | Blocked | Portal String deriving (Show, Eq)
 type TileArray = A.Array GridPos Tile 
-
+type AugPos = (GridPos, Int)
 makeGraph :: TileArray -> ArrayGraph GridPos 
 makeGraph tileArray = A.array (A.bounds tileArray) $ makeEdges <$> A.assocs tileArray where 
   makeEdges (pos, val)
@@ -21,6 +23,18 @@ makeGraph tileArray = A.array (A.bounds tileArray) $ makeEdges <$> A.assocs tile
   freeNeighbors pos = [nei | nei <- neighbors4 pos, inBounds nei, tileArray ! nei /= Blocked] 
   portalPartners portalPos portalName =  [portalPos' | (portalPos', Portal portalName') <- A.assocs tileArray, portalPos /= portalPos', portalName == portalName'] 
 
+-- data LazyGraph ctx node = LazyGraph {nodes :: ctx, edgeFunc :: node -> Edges node, bounds :: (node, node)}
+makeGraph2 :: TileArray -> LazyGraph AugPos 
+makeGraph2 tileArray = LazyGraph {edgeFunc = getEdges, bounds = ((minBounds, 0), (maxBounds, 1000))} where 
+  bounds@(minBounds, maxBounds@(yMax, xMax)) = A.bounds tileArray 
+  inBounds = A.inRange bounds  
+  freeNeighbors pos = [nei | nei <- neighbors4 pos, inBounds nei, tileArray ! nei /= Blocked] 
+  isOuterLevel (y,x) = x ==3 || y == 3 || x == xMax -2 || y == yMax -2
+  getEdges augPos@(pos, level)
+    | tileArray ! pos == Free = [((nei, level), Dist 1) | nei <- freeNeighbors pos]
+    | Portal portalName <- tileArray ! pos = [((nei, level), Dist 1) | nei <- freeNeighbors pos] ++ 
+      (if level == 0 && isOuterLevel pos then []  else [((nei, level + levelDif), Dist 1) | (nei, levelDif) <- portalPartnersAug pos portalName  ])
+  portalPartnersAug portalPos portalName =  [(portalPos', if isOuterLevel portalPos then -1 else 1) | (portalPos', Portal portalName') <- A.assocs tileArray, portalPos /= portalPos', portalName == portalName'] 
 
 parseFile :: String -> TileArray 
 parseFile file = let 
@@ -51,3 +65,11 @@ shortestPath tileAr = let
   [endPos] =   [pos | (pos, Portal "ZZ") <- A.assocs tileAr] 
   in (distanceMap $ runDijkstra graph startPos [endPos]) ! endPos 
 
+shortestPath2 :: TileArray -> Distance 
+shortestPath2 tileAr = let 
+  graph = makeGraph2 tileAr 
+  [startPos] = [pos | (pos, Portal "AA") <- A.assocs tileAr] 
+  [endPos] =   [pos | (pos, Portal "ZZ") <- A.assocs tileAr] 
+  in (distanceMap $ runDijkstra @(M.Map AugPos Distance) graph  (startPos, 0 :: Int) [(endPos,0)]) M.! (endPos, 0) 
+
+getSolutions20 = getSolutions parseFile shortestPath shortestPath2

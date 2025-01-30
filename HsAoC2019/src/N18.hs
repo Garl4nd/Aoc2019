@@ -22,17 +22,17 @@ type Key = Char
 type Encoding = Int
 type AugPos = (GridPos, Encoding)
 type AugGraph = ArrayGraph AugPos
-type LazySetGraph = LazyGraph CharGrid AugPos
+type LazySetGraph = LazyGraph AugPos
 
 grid :: A.Array GridPos Int
 grid = A.array ((0, 0), (10, 10)) [((y, x), 0) | y <- [0 .. 9], x <- [0 .. 9]]
-makeLazyGraphOrd :: A.Array GridPos e -> LazyGraph (A.Array GridPos e) GridPos
-makeLazyGraphOrd grid = LazyGraph{nodes = grid, edgeFunc = getAugEdges, bounds = A.bounds grid}
+makeLazyGraphOrd :: A.Array GridPos e -> LazyGraph GridPos
+makeLazyGraphOrd grid = LazyGraph{edgeFunc = getAugEdges, bounds = A.bounds grid}
  where
   getAugEdges pos = [(n, Dist 1) | n <- neighbors4 pos]
 
 makeLazyGraph :: CharGrid -> [Char] -> LazySetGraph
-makeLazyGraph grid doors = LazyGraph{nodes = grid, edgeFunc = getAugEdges, bounds = ((minBound, 0), (maxBound, shiftL 1 26))}
+makeLazyGraph grid doors = LazyGraph{edgeFunc = getAugEdges, bounds = ((minBound, 0), (maxBound, shiftL 1 26))}
  where
   getAugEdges (pos, keys) =
     let

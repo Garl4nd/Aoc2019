@@ -65,9 +65,9 @@ instance (A.Ix node) => LabeledGraph (M.Map node (Edges node)) node where
   vertices = S.fromList . M.keys
   getBounds mapGraph = (minimum keys, maximum keys) where keys = M.keys mapGraph
 
-data LazyGraph ctx node = LazyGraph {nodes :: ctx, edgeFunc :: node -> Edges node, bounds :: (node, node)}
+data LazyGraph  node = LazyGraph {edgeFunc :: node -> Edges node, bounds :: (node, node)}
 
-instance (A.Ix node) => LabeledGraph (LazyGraph ctx node) node where
+instance (A.Ix node) => LabeledGraph (LazyGraph node) node where
   getEdges LazyGraph{edgeFunc} = edgeFunc
   getBounds = bounds
   vertices = const S.empty
