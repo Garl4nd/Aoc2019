@@ -12,7 +12,7 @@ import System.Directory (copyFile)
 import System.TimeIt (timeItNamed)
 import Text.Read (readMaybe)
 import Useful (trimChar, trimSpace, splitOn)
-
+import Data.Char 
 mainLoop :: IO ()
 mainLoop = do
   threads <- getNumCapabilities
@@ -26,7 +26,7 @@ mainLoop = do
         [_, codeFile, inputFile] -> do 
           code <- codeParser <$> readFile codeFile 
           input <- readFile inputFile 
-          talkToMachine code input 
+          talkToMachine code input
 	_ -> print "Wrong input"
       mainLoop
     else

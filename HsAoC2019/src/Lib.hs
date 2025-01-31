@@ -17,6 +17,7 @@ import N18
 import N19
 import N2
 import N20
+import N21
 import N3
 import N4
 import N5
@@ -63,7 +64,7 @@ maybeSolver day = solFunc
     18 -> stringize <$> Just getSolutions18
     19 -> stringize <$> Just getSolutions19
     20 -> stringize <$> Just getSolutions20
-    -- 21 -> Just getSolutions21
+    21 -> stringize <$> Just getSolutions21
     -- 22 -> Just getSolutions22
     -- 23 -> Just getSolutions23
     -- 24 -> Just getSolutions24
