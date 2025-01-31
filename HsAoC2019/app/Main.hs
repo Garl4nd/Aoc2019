@@ -4,15 +4,16 @@ module Main (
 
 import Control.Concurrent (getNumCapabilities)
 import Control.Monad (unless, when, (>=>))
+import Data.Char
 import Data.List (intercalate, isPrefixOf)
 import InputDownloader (runFetchProblemDataToFiles)
-import IntCode (codeParser, talkToMachine, runProgramIO)
+import IntCode (codeParser, runProgramIO, talkToMachine)
 import Lib
 import System.Directory (copyFile)
 import System.TimeIt (timeItNamed)
 import Text.Read (readMaybe)
-import Useful (trimChar, trimSpace, splitOn)
-import Data.Char 
+import Useful (splitOn, trimChar, trimSpace)
+
 mainLoop :: IO ()
 mainLoop = do
   threads <- getNumCapabilities
@@ -21,13 +22,13 @@ mainLoop = do
   prompt <- getLine
   if "talk" `isPrefixOf` prompt
     then do
-      case splitOn ' ' prompt of 
-        [_, codeFile] ->  (`talkToMachine` []). codeParser =<< readFile codeFile 
-        [_, codeFile, inputFile] -> do 
-          code <- codeParser <$> readFile codeFile 
-          input <- readFile inputFile 
+      case splitOn ' ' prompt of
+        [_, codeFile] -> (`talkToMachine` []) . codeParser =<< readFile codeFile
+        [_, codeFile, inputFile] -> do
+          code <- codeParser <$> readFile codeFile
+          input <- readFile inputFile
           talkToMachine code input
-	_ -> print "Wrong input"
+        _ -> print "Wrong input"
       mainLoop
     else
       if "intc" `isPrefixOf` prompt

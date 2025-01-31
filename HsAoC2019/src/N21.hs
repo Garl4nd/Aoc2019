@@ -12,20 +12,16 @@ springCode1 =
     , "AND D J"
     , "WALK"
     ]
+
+-- part 2: not 1 or not ((2 or not 3) and 8) and 4
 springCode2 =
   unlines
     [ "NOT C T"
-    , "NOT F J"
-    , "OR H J"
-    , "AND J T"
-    , "NOT A J"
-    , "OR T J"
-    , "OR D T"
-    , "OR F T"
-    , "NOT T T"
-    , "OR T J"
-    , "NOT B T"
-    , "OR T J"
+    , "NOT B J"
+    , "OR T J "
+    , "AND H J"
+    , "NOT A T"
+    , "OR T J "
     , "AND D J"
     , "RUN"
     ]

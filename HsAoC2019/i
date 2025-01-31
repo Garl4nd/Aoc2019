@@ -1,4 +1,24 @@
-not c t
+NOT C T
+NOT B J 
+OR T J
+AND H J
+NOT A T 
+OR T J 
+AND D J 
+RUN
+
+NOT B J 
+NOT C T
+OR T J
+AND D J 
+AND H J 
+NOT A T 
+OR T J 
+RUN
+
+
+uloha 1 : ne 3 nebo ne 1 a 4 
+uloha 2 : (ne 3 a 8) nebo ne 1 nebo ne 2 a 4 
 not f j 
 or h j 
 and j t 
