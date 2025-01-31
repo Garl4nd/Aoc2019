@@ -13,7 +13,7 @@ springCode1 =
     , "WALK"
     ]
 
--- part 2: not 1 or not ((2 or not 3) and 8) and 4
+-- part 2: not 1 or ((not 2 or not 3) and 8) and 4. (not 2) or (not 3 and 8) would work as well.
 springCode2 =
   unlines
     [ "NOT C T"
