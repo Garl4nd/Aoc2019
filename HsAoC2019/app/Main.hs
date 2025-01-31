@@ -11,7 +11,7 @@ import Lib
 import System.Directory (copyFile)
 import System.TimeIt (timeItNamed)
 import Text.Read (readMaybe)
-import Useful (trimChar, trimSpace)
+import Useful (trimChar, trimSpace, splitOn)
 
 mainLoop :: IO ()
 mainLoop = do
@@ -21,8 +21,14 @@ mainLoop = do
   prompt <- getLine
   if "talk" `isPrefixOf` prompt
     then do
-      code <- codeParser <$> (readFile . trimChar '"' . trimSpace . drop 4 $ prompt)
-      talkToMachine code
+      case splitOn ' ' prompt of 
+        [_, codeFile] ->  (`talkToMachine` []). codeParser =<< readFile codeFile 
+        [_, codeFile, inputFile] -> do 
+          code <- codeParser <$> readFile codeFile 
+          input <- readFile inputFile 
+          talkToMachine code input 
+	_ -> print "Wrong input"
+      mainLoop
     else
       if "intc" `isPrefixOf` prompt
         then do

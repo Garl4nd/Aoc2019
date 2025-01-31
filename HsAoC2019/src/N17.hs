@@ -94,7 +94,7 @@ getSolutions17 inputFile  = do
   print $ "Possible patterns = " <> show patterns 
   print  "Launching the conversation with the machine, good luck"
   _ <- getLine 
-  talkToMachine (2: tail code )
+  talkToMachine (2: tail code ) []
   print  "Input the answer"
   sol2 <- getLine 
   return (sol1, sol2)

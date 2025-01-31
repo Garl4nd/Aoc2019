@@ -1,0 +1,15 @@
+NOT C T
+NOT A J
+OR T J
+OR C T 
+OR E T
+OR F T 
+NOT T T 
+OR T J
+NOT B T 
+OR T J
+AND D J
+RUN
+
+(ne 3 nebo ne 1) a 4 
+nebo (ne 3 a ne 5 a ne 6) nebo (ne 2) 

@@ -196,10 +196,10 @@ runProgramIO code = do
       let newInput = [read strInput]
       loop newInput
 
-talkToMachine :: [Int] -> IO ()
-talkToMachine code = do
+talkToMachine :: [Int] -> String -> IO ()
+talkToMachine code initInput = do
   machine <- createMachine @IOArray code
-  flip fix [] $ \loop input -> do
+  flip fix (ord <$> initInput) $ \loop input -> do
     intOutput <- getOutputs =<< runMachine input machine
     let strOutput = concatMap (\i -> if i < 256 then chr i : "" else show i) intOutput
     putStrLn strOutput
@@ -207,4 +207,4 @@ talkToMachine code = do
     unless (state == Halted) $ do
       strInput <- getLine
       let newInput = ord <$> strInput <> "\n"
-      loop newInput
+      loop newInput  
