@@ -8,20 +8,17 @@ import Data.Bits
 import Data.Data (Proxy (Proxy))
 import Data.Either (fromRight)
 import Data.Foldable (foldl')
-import Data.Function.Memoize
-import qualified Data.Set as S
 import Data.Void (Void)
-import Debug.Trace (traceWith)
-import Debugging (traceWInfo)
 import GHC.TypeLits (KnownNat, Nat, natVal)
+import ModularArithmetics
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Useful
 
 type SParser = Parsec Void String
-type Card = Integer
 data ShuffleType = NewStack | Inc Integer | Cut Integer deriving (Show)
+
 numParser :: SParser Integer
 numParser = L.signed spaceConsumer (lexeme L.decimal)
  where
@@ -38,6 +35,60 @@ shuffleParser =
 parseFile :: String -> [ShuffleType]
 parseFile file = fromRight [] $ runParser (sepEndBy shuffleParser newline) "" file
 
+newStackSingle :: (KnownNat n) => ModInteger n -> ModInteger n
+newStackSingle cardPos = -cardPos - 1
+
+cutSingle :: (KnownNat n) => ModInteger n -> ModInteger n -> ModInteger n
+cutSingle = subtract
+
+incSingle :: (KnownNat n) => ModInteger n -> ModInteger n -> ModInteger n
+incSingle = (*)
+
+shuffleSingle :: forall n. (KnownNat n) => [ShuffleType] -> ModInteger n -> ModInteger n
+shuffleSingle shuffles cardPos = foldl' (flip shuffleOp) cardPos shuffles
+ where
+  shuffleOp :: ShuffleType -> ModInteger n -> ModInteger n
+  shuffleOp NewStack = newStackSingle
+  shuffleOp (Cut k) = cutSingle (fromInteger k)
+  shuffleOp (Inc k) = incSingle (fromInteger k)
+
+solution1 :: [ShuffleType] -> Integer
+solution1 shuffles = let ModI res = shuffleSingle @10007 shuffles 2019 in res
+
+data (KnownNat n) => ModLinCoeffs n = ModLinCoeffs {a :: ModInteger n, b :: ModInteger n} deriving (Eq, Show)
+
+modLinFunc :: (KnownNat n) => ModLinCoeffs n -> (ModInteger n -> ModInteger n)
+modLinFunc ModLinCoeffs{a, b} x = a * x + b
+
+instance (KnownNat n) => Semigroup (ModLinCoeffs n) where
+  ModLinCoeffs a1 b1 <> ModLinCoeffs a2 b2 =
+    ModLinCoeffs{a = a1 * a2, b = a1 * b2 + b1}
+
+instance (KnownNat n) => Monoid (ModLinCoeffs n) where
+  mempty = ModLinCoeffs 1 0
+
+inverseLinCoeffs :: (KnownNat n) => ModLinCoeffs n -> ModLinCoeffs n
+inverseLinCoeffs (ModLinCoeffs a b) = ModLinCoeffs alpha beta
+ where
+  (alpha, beta) = (modInverse a, -(alpha * b))
+
+fastLinearIterate :: (KnownNat n) => ModLinCoeffs n -> Integer -> (ModInteger n -> ModInteger n)
+fastLinearIterate coeffs iter = modLinFunc $ fastMonoidIter coeffs iter
+
+solution2 :: [ShuffleType] -> Integer
+solution2 shuffles =
+  let
+    shuffleCoeffs :: forall deckSize. (KnownNat deckSize) => ModLinCoeffs deckSize
+    shuffleCoeffs = ModLinCoeffs a b
+     where
+      shufFunc = shuffleSingle shuffles
+      (a, b) = (shufFunc 1 - b, shufFunc 0)
+    inverseCoeffs = inverseLinCoeffs @119315717514047 shuffleCoeffs
+   in
+    let ModI res = fastLinearIterate inverseCoeffs 101741582076661 2020 in res
+
+getSolutions22 = getSolutions parseFile solution1 solution2
+
 -- newStack :: [Card] -> [Card]
 -- newStack = reverse
 
@@ -53,15 +104,15 @@ parseFile file = fromRight [] $ runParser (sepEndBy shuffleParser newline) "" fi
 --    in
 --     [cards !! fromInteger (k * modInv `mod` (toInteger $ length cards)) | k <- [0 .. toInteger $ length cards - 1]]
 
-newStackSingle :: Integer -> Card -> Card
-newStackSingle deckSize cardPos = deckSize - cardPos - 1
-
-cutSingle :: Integer -> Integer -> Card -> Card
-cutSingle deckSize n cardPos = (cardPos - n) `mod` deckSize
-
-incSingle :: Integer -> Integer -> Card -> Card
-incSingle deckSize n cardPos = n * cardPos `mod` deckSize
-
+-- newStackSingle :: Integer -> Card -> Card
+-- newStackSingle deckSize cardPos = deckSize - cardPos - 1
+--
+-- cutSingle :: Integer -> Integer -> Card -> Card
+-- cutSingle deckSize n cardPos = (cardPos - n) `mod` deckSize
+--
+-- incSingle :: Integer -> Integer -> Card -> Card
+-- incSingle deckSize n cardPos = n * cardPos `mod` deckSize
+--
 -- newStackSingleInv :: Integer -> Card -> Card
 -- newStackSingleInv = newStackSingle
 
@@ -71,19 +122,9 @@ incSingle deckSize n cardPos = n * cardPos `mod` deckSize
 -- incSingleInv :: Integer -> Integer -> Card -> Card
 -- incSingleInv deckSize n cardPos = (cardPos * modInverse n deckSize) `mod` deckSize
 
-modInverse :: Integer -> Integer -> Integer
-modInverse x n = let (_, k, _) = extendedEuclid x n in k `mod` n
-
-extendedEuclid :: Integer -> Integer -> (Integer, Integer, Integer)
-extendedEuclid a b = go a b 1 0 0 1
- where
-  go r0 0 s0 _ t0 _ = (r0, s0, t0)
-  go r0 r1 s0 s1 t0 t1 =
-    let (q, r) = r0 `quotRem` r1
-        s = s0 - q * s1
-        t = t0 - q * t1
-     in go r1 r s1 s t1 t
-
+-- modInverse :: Integer -> Integer -> Integer
+-- modInverse x n = let (_, k, _) = extendedEuclid x n in k `mod` n
+--
 -- shuffleCards :: [ShuffleType] -> [Card] -> [Card]
 -- shuffleCards shuffles cards = foldl' (flip shuffleOp) cards shuffles
 --  where
@@ -91,16 +132,13 @@ extendedEuclid a b = go a b 1 0 0 1
 --   shuffleOp (Cut n) = cut n
 --   shuffleOp (Inc n) = incDeal n
 
-shuffleSingle :: [ShuffleType] -> Integer -> Card -> Card
-shuffleSingle shuffles deckSize cardPos = foldl' (flip shuffleOp) cardPos shuffles
- where
-  shuffleOp NewStack = newStackSingle deckSize
-  shuffleOp (Cut n) = cutSingle deckSize n
-  shuffleOp (Inc n) = incSingle deckSize n
-
-checkInvs :: Integer -> (Integer -> Integer -> Integer) -> (Integer -> Integer -> Integer) -> [(Integer, Integer, Integer)]
-checkInvs deckSize f fInv = [(n, r, nI) | n <- [0 .. deckSize - 1], let r = f deckSize n, let nI = fInv deckSize r, n /= nI]
-
+-- shuffleSingle :: [ShuffleType] -> Integer -> Card -> Card
+-- shuffleSingle shuffles deckSize cardPos = foldl' (flip shuffleOp) cardPos shuffles
+--  where
+--   shuffleOp NewStack = newStackSingle deckSize
+--   shuffleOp (Cut n) = cutSingle deckSize n
+--   shuffleOp (Inc n) = incSingle deckSize n
+--
 -- shuffleSingleInv :: [ShuffleType] -> Integer -> Card -> Card
 -- shuffleSingleInv shuffles deckSize cardPos = foldr shuffleOp cardPos shuffles
 --  where
@@ -109,44 +147,10 @@ checkInvs deckSize f fInv = [(n, r, nI) | n <- [0 .. deckSize - 1], let r = f de
 --   shuffleOp (Cut n) = cutSingleInv deckSize n
 --   shuffleOp (Inc n) = incSingleInv deckSize n
 
-solution1 :: [ShuffleType] -> Integer
-solution1 shuffles = shuffleSingle shuffles 10007 2019
-
-type LinCoeffs = (Integer, Integer)
+-- type LinCoeffs = (Integer, Integer)
 
 -- combineCoefs :: LinCoeffs -> LinCoeffs -> Integer -> LinCoeffs
 -- combineCoefs (a, b) (a', b') modN =  ((a*a') `mod` modN, (a*b' + b) `mod` modN)
-
-data (KnownNat n) => ModLinCoeffs n = ModLinCoeffs {a :: Integer, b :: Integer} deriving (Eq, Show)
-
-instance (KnownNat n) => Semigroup (ModLinCoeffs n) where
-  c@(ModLinCoeffs a1 b1) <> (ModLinCoeffs a2 b2) =
-    let n = natVal c
-     in ModLinCoeffs{a = (a1 * a2) `mod` n, b = (a1 * b2 + b1) `mod` n}
-
-instance (KnownNat n) => Monoid (ModLinCoeffs n) where
-  mempty = ModLinCoeffs 1 0
-
-getLinFunc :: (KnownNat n) => ModLinCoeffs n -> (Integer -> Integer)
-getLinFunc c@ModLinCoeffs{a, b} = f
- where
-  f x = (a * x + b) `mod` n
-  n = natVal c
-
-inverseLinCoeffs :: (KnownNat n) => ModLinCoeffs n -> ModLinCoeffs n
-inverseLinCoeffs c@(ModLinCoeffs a b) = ModLinCoeffs alpha beta
- where
-  (alpha, beta) = (modInverse a n, (-(alpha * b)) `mod` n)
-  n = natVal c
-
-fastMonoidIter :: (Monoid f) => f -> Integer -> f
-fastMonoidIter f n = go n f mempty
- where
-  go k fPow accumFunc
-    | k == 0 = accumFunc
-    | otherwise = go (shiftR k 1) newFPow (if k .&. 1 == 1 then fPow <> accumFunc else accumFunc)
-   where
-    newFPow = fPow <> fPow
 
 -- iterLinearCoeffs :: LinCoeffs -> Integer -> Integer -> LinCoeffs
 -- iterLinearCoeffs f n modN = go 1 f (1,0) where
@@ -154,21 +158,3 @@ fastMonoidIter f n = go n f mempty
 --     | k > n = accumIter
 --     | otherwise = go (2*k) newFPow (if k .&. n /= 0 then combineCoefs fPow accumIter modN else accumIter) where
 --       newFPow = combineCoefs fPow fPow modN
-
-fastLinearIterate :: (KnownNat n) => ModLinCoeffs n -> Integer -> (Integer -> Integer)
-fastLinearIterate coeffs iter = getLinFunc $ fastMonoidIter coeffs iter
-
-solution2 :: [ShuffleType] -> Integer
-solution2 shuffles =
-  let
-    shuffleCoeffs :: forall deckSizeT. (KnownNat deckSizeT) => ModLinCoeffs deckSizeT
-    shuffleCoeffs = ModLinCoeffs a b
-     where
-      deckSize = natVal (Proxy :: Proxy deckSizeT)
-      shufFunc = shuffleSingle shuffles deckSize
-      (a, b) = ((shufFunc 1 - b) `mod` deckSize, shufFunc 0)
-    inverseCoeffs = inverseLinCoeffs @119315717514047 shuffleCoeffs
-   in
-    fastLinearIterate inverseCoeffs 101741582076661 2020
-
-getSolutions22 = getSolutions parseFile solution1 solution2

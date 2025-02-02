@@ -32,6 +32,7 @@ library
       InputDownloader
       IntCode
       Lib
+      ModularArithmetics
       N1
       N10
       N11
