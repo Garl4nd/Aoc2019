@@ -2,6 +2,7 @@ module N22 (getSolutions22) where
 
 import Data.Either (fromRight)
 import Data.Foldable (foldl')
+import Data.Bits
 import Data.Function.Memoize
 import qualified Data.Set as S
 import Data.Void (Void)
@@ -9,6 +10,8 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Useful
+import Debug.Trace (traceWith)
+import Debugging (traceWInfo)
 
 type SParser = Parsec Void String
 type Card = Integer
@@ -106,9 +109,13 @@ solution1 shuffles = shuffleSingle shuffles 10007 2019
 solution2' :: [ShuffleType] -> Integer
 solution2' shuffles =
   let
-    shufInv x = (90109821400559 * x + 119199174489885) `mod` 119315717514047 -- shuffleSingleInv shuffles 119315717514047
+    deckSize = 119315717514047
+    shufInv = shuffleSingleInv shuffles deckSize
+    b = shufInv 0 
+    a = (shufInv 1 - b) `mod` deckSize 
+    -- shufInv x = (90109821400559 * x + 119199174489885) `mod` 119315717514047 -- shuffleSingleInv shuffles 119315717514047
    in
-    (iterate shufInv 2020) !! (101741582076661)
+    fastLinearIterate (a,b) 101741582076661 deckSize 2020 
 
 getSolutions22 = getSolutions parseFile solution1 solution2'
 solution2 :: [ShuffleType] -> (Integer, Integer, Int, Int)
@@ -120,3 +127,16 @@ solution2 shuffles =
     res = iterate shufInv 2020 !! nCalc
    in
     ((iterate shufInv 2020) !! lambda, res, mu, lambda)
+
+type LinCoeffs = (Integer, Integer)
+combineCoefs (a, b) (a', b') modN =  ((a*a') `mod` modN, (a*b' + b) `mod` modN)
+
+iterLinearCoeffs :: LinCoeffs -> Integer -> Integer -> LinCoeffs
+iterLinearCoeffs f n modN = go 1 f (1,0) where 
+  go k fPow accumIter  
+    | k > n = accumIter 
+    | otherwise = go (2*k) newFPow (if (k .&. n /= 0) then combineCoefs fPow accumIter modN else accumIter) where 
+      newFPow = combineCoefs fPow fPow modN 
+
+fastLinearIterate :: LinCoeffs -> Integer -> Integer -> (Integer -> Integer) 
+fastLinearIterate coeffs n modN = let (a, b) = iterLinearCoeffs coeffs n modN in \x -> (a * x + b) `mod` modN 
