@@ -1,20 +1,23 @@
-{-# LANGUAGE  DataKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TypeApplications #-}
+
 module N22 (getSolutions22) where
 
+import Data.Bits
+import Data.Data (Proxy (Proxy))
 import Data.Either (fromRight)
 import Data.Foldable (foldl')
-import Data.Bits
 import Data.Function.Memoize
 import qualified Data.Set as S
 import Data.Void (Void)
+import Debug.Trace (traceWith)
+import Debugging (traceWInfo)
+import GHC.TypeLits (KnownNat, Nat, natVal)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Useful
-import Debug.Trace (traceWith)
-import Debugging (traceWInfo)
-import GHC.TypeLits (KnownNat, natVal, Nat)
-import Data.Data (Proxy(Proxy))
 
 type SParser = Parsec Void String
 type Card = Integer
@@ -114,56 +117,58 @@ type LinCoeffs = (Integer, Integer)
 -- combineCoefs :: LinCoeffs -> LinCoeffs -> Integer -> LinCoeffs
 -- combineCoefs (a, b) (a', b') modN =  ((a*a') `mod` modN, (a*b' + b) `mod` modN)
 
-data  (KnownNat n) => ModLinCoeffs n = ModLinCoeffs {a :: Integer, b :: Integer } deriving (Eq, Show) 
+data (KnownNat n) => ModLinCoeffs n = ModLinCoeffs {a :: Integer, b :: Integer} deriving (Eq, Show)
 
-instance  KnownNat n => Semigroup (ModLinCoeffs n) where 
- c@(ModLinCoeffs a1 b1) <> (ModLinCoeffs a2 b2) = let n = natVal c 
-                                                  in ModLinCoeffs {a = (a1*a2) `mod` n, b = (a1*b2 + b1) `mod` n }  
+instance (KnownNat n) => Semigroup (ModLinCoeffs n) where
+  c@(ModLinCoeffs a1 b1) <> (ModLinCoeffs a2 b2) =
+    let n = natVal c
+     in ModLinCoeffs{a = (a1 * a2) `mod` n, b = (a1 * b2 + b1) `mod` n}
 
-instance  (KnownNat n) => Monoid (ModLinCoeffs  n) where
-   mempty = ModLinCoeffs 1 0 
+instance (KnownNat n) => Monoid (ModLinCoeffs n) where
+  mempty = ModLinCoeffs 1 0
 
-getLinFunc :: KnownNat n => ModLinCoeffs n -> (Integer -> Integer) 
-getLinFunc c@(ModLinCoeffs a b)  = f where 
-  f x = (a* x + b) `mod` n 
+getLinFunc :: (KnownNat n) => ModLinCoeffs n -> (Integer -> Integer)
+getLinFunc c@ModLinCoeffs{a, b} = f
+ where
+  f x = (a * x + b) `mod` n
   n = natVal c
 
-inverseLinCoeffs :: KnownNat n => ModLinCoeffs n -> ModLinCoeffs n
-inverseLinCoeffs c@(ModLinCoeffs a b) = ModLinCoeffs alpha beta where 
-  (alpha, beta) = (modInverse a n, (-(alpha * b)) `mod` n) 
+inverseLinCoeffs :: (KnownNat n) => ModLinCoeffs n -> ModLinCoeffs n
+inverseLinCoeffs c@(ModLinCoeffs a b) = ModLinCoeffs alpha beta
+ where
+  (alpha, beta) = (modInverse a n, (-(alpha * b)) `mod` n)
   n = natVal c
 
-
-fastMonoidIter :: Monoid f => f ->  Integer -> f
-fastMonoidIter f n = go 1 f mempty  where 
-  go k fPow accumFunc 
-    | k > n = accumFunc 
-    | otherwise = go (2*k) newFPow (if k .&. n /= 0 then fPow <> accumFunc else accumFunc) where 
-      newFPow =  fPow <> fPow 
-
+fastMonoidIter :: (Monoid f) => f -> Integer -> f
+fastMonoidIter f n = go n f mempty
+ where
+  go k fPow accumFunc
+    | k == 0 = accumFunc
+    | otherwise = go (shiftR k 1) newFPow (if k .&. 1 == 1 then fPow <> accumFunc else accumFunc)
+   where
+    newFPow = fPow <> fPow
 
 -- iterLinearCoeffs :: LinCoeffs -> Integer -> Integer -> LinCoeffs
--- iterLinearCoeffs f n modN = go 1 f (1,0) where 
---   go k fPow accumIter  
---     | k > n = accumIter 
---     | otherwise = go (2*k) newFPow (if k .&. n /= 0 then combineCoefs fPow accumIter modN else accumIter) where 
---       newFPow = combineCoefs fPow fPow modN 
+-- iterLinearCoeffs f n modN = go 1 f (1,0) where
+--   go k fPow accumIter
+--     | k > n = accumIter
+--     | otherwise = go (2*k) newFPow (if k .&. n /= 0 then combineCoefs fPow accumIter modN else accumIter) where
+--       newFPow = combineCoefs fPow fPow modN
 
-fastLinearIterate :: KnownNat n => ModLinCoeffs n  -> Integer -> (Integer -> Integer) 
-fastLinearIterate coeffs iter = getLinFunc $ fastMonoidIter coeffs iter 
+fastLinearIterate :: (KnownNat n) => ModLinCoeffs n -> Integer -> (Integer -> Integer)
+fastLinearIterate coeffs iter = getLinFunc $ fastMonoidIter coeffs iter
 
 solution2 :: [ShuffleType] -> Integer
 solution2 shuffles =
   let
-    shuffleCoeffs :: forall deckSizeT . KnownNat deckSizeT => ModLinCoeffs deckSizeT
-    shuffleCoeffs = ModLinCoeffs a b where
-      deckSize = natVal (Proxy:: Proxy deckSizeT)
+    shuffleCoeffs :: forall deckSizeT. (KnownNat deckSizeT) => ModLinCoeffs deckSizeT
+    shuffleCoeffs = ModLinCoeffs a b
+     where
+      deckSize = natVal (Proxy :: Proxy deckSizeT)
       shufFunc = shuffleSingle shuffles deckSize
       (a, b) = ((shufFunc 1 - b) `mod` deckSize, shufFunc 0)
-    inverseCoeffs :: ModLinCoeffs 119315717514047
-    inverseCoeffs = inverseLinCoeffs shuffleCoeffs
+    inverseCoeffs = inverseLinCoeffs @119315717514047 shuffleCoeffs
    in
-    fastLinearIterate inverseCoeffs 101741582076661  2020 
+    fastLinearIterate inverseCoeffs 101741582076661 2020
 
 getSolutions22 = getSolutions parseFile solution1 solution2
-
