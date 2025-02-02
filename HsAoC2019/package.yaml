@@ -45,6 +45,7 @@ dependencies:
 - gnuplot 
 - ref-fd
 - ansi-terminal
+- groups 
 # - regex-pcre-builtin
 
 default-extensions:

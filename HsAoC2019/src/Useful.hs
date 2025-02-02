@@ -39,6 +39,7 @@ import Data.Bits
 import Data.Function (on)
 import Data.List (find, findIndex, groupBy, intercalate, isPrefixOf, sortOn, tails)
 import Data.Maybe (fromJust)
+import Data.Semigroup (stimesMonoid)
 import Data.Tuple (swap)
 
 type GridPos = (Int, Int)
@@ -178,13 +179,13 @@ cycleDetectionBrent f x0 = (mu, lambda)
   mu = head [i | (i, tortoise, hare) <- zip3 [0 ..] fiterates iteratesFromLambda, tortoise == hare]
 
 fastMonoidIter :: (Monoid f) => f -> Integer -> f
-fastMonoidIter f n = go n f mempty
- where
-  go k fPow accumFunc
-    | k == 0 = accumFunc
-    | otherwise = go (shiftR k 1) newFPow (if k .&. 1 == 1 then fPow <> accumFunc else accumFunc)
-   where
-    newFPow = fPow <> fPow
+fastMonoidIter = flip stimesMonoid -- go n f mempty
+--  where
+--   go k fPow accumFunc
+--     | k == 0 = accumFunc
+--     | otherwise = go (shiftR k 1) newFPow (if k .&. 1 == 1 then fPow <> accumFunc else accumFunc)
+--    where
+--     newFPow = fPow <> fPow
 
 getSolutions :: (Show b, Show c) => (String -> a) -> (a -> b) -> (a -> c) -> (String -> IO (b, c))
 getSolutions parser solution1 solution2 = readFile >=> (parser >>> (solution1 &&& solution2) >>> return)

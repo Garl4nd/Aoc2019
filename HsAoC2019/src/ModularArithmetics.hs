@@ -1,4 +1,4 @@
-module ModularArithmetics (ModInteger (..), modInverse) where
+module ModularArithmetics (ModInteger (..), Field (..)) where
 
 import Data.Data (Proxy (Proxy))
 import GHC.TypeLits
@@ -12,6 +12,12 @@ instance forall n. (KnownNat n) => Num (ModInteger n) where
   abs (ModI x) = ModI $ abs x
   signum (ModI x) = if x == 0 then 0 else 1
   fromInteger x = ModI $ x `mod` natVal (Proxy :: Proxy n)
+
+class (Num n) => Field n where
+  multInverse :: n -> n
+
+instance (KnownNat n) => Field (ModInteger n) where -- only valid for n prime
+  multInverse = modInverse
 
 modInverse :: (KnownNat n) => ModInteger n -> ModInteger n
 modInverse modX@(ModI x) =

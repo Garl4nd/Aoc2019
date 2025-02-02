@@ -8,6 +8,7 @@ import Data.Bits
 import Data.Data (Proxy (Proxy))
 import Data.Either (fromRight)
 import Data.Foldable (foldl')
+import Data.Group
 import Data.Void (Void)
 import GHC.TypeLits (KnownNat, Nat, natVal)
 import ModularArithmetics
@@ -36,7 +37,7 @@ parseFile :: String -> [ShuffleType]
 parseFile file = fromRight [] $ runParser (sepEndBy shuffleParser newline) "" file
 
 newStackSingle :: (KnownNat n) => ModInteger n -> ModInteger n
-newStackSingle cardPos = -cardPos - 1
+newStackSingle cardPos = negate cardPos - 1
 
 cutSingle :: (KnownNat n) => ModInteger n -> ModInteger n -> ModInteger n
 cutSingle = subtract
@@ -55,35 +56,35 @@ shuffleSingle shuffles cardPos = foldl' (flip shuffleOp) cardPos shuffles
 solution1 :: [ShuffleType] -> Integer
 solution1 shuffles = let ModI res = shuffleSingle @10007 shuffles 2019 in res
 
-data (KnownNat n) => ModLinCoeffs n = ModLinCoeffs {a :: ModInteger n, b :: ModInteger n} deriving (Eq, Show)
+data (Field k) => LinCoeffs k = LinCoeffs {a :: k, b :: k} deriving (Eq, Show)
 
-modLinFunc :: (KnownNat n) => ModLinCoeffs n -> (ModInteger n -> ModInteger n)
-modLinFunc ModLinCoeffs{a, b} x = a * x + b
+linFunc :: (Field k) => LinCoeffs k -> (k -> k)
+linFunc LinCoeffs{a, b} x = a * x + b
 
-instance (KnownNat n) => Semigroup (ModLinCoeffs n) where
-  ModLinCoeffs a1 b1 <> ModLinCoeffs a2 b2 =
-    ModLinCoeffs{a = a1 * a2, b = a1 * b2 + b1}
+instance (Field k) => Semigroup (LinCoeffs k) where
+  LinCoeffs a1 b1 <> LinCoeffs a2 b2 =
+    LinCoeffs{a = a1 * a2, b = a1 * b2 + b1}
 
-instance (KnownNat n) => Monoid (ModLinCoeffs n) where
-  mempty = ModLinCoeffs 1 0
+instance (Field k) => Monoid (LinCoeffs k) where
+  mempty = LinCoeffs 1 0
 
-inverseLinCoeffs :: (KnownNat n) => ModLinCoeffs n -> ModLinCoeffs n
-inverseLinCoeffs (ModLinCoeffs a b) = ModLinCoeffs alpha beta
- where
-  (alpha, beta) = (modInverse a, -(alpha * b))
+instance (Field k) => Group (LinCoeffs k) where
+  invert (LinCoeffs a b) = LinCoeffs alpha beta
+   where
+    (alpha, beta) = (multInverse a, -(alpha * b))
 
-fastLinearIterate :: (KnownNat n) => ModLinCoeffs n -> Integer -> (ModInteger n -> ModInteger n)
-fastLinearIterate coeffs iter = modLinFunc $ fastMonoidIter coeffs iter
+fastLinearIterate :: (Field k) => LinCoeffs k -> Integer -> (k -> k)
+fastLinearIterate coeffs iter = linFunc $ fastMonoidIter coeffs iter -- fastMonoidIter  is already provided in base: == flip stimes
 
 solution2 :: [ShuffleType] -> Integer
 solution2 shuffles =
   let
-    shuffleCoeffs :: forall deckSize. (KnownNat deckSize) => ModLinCoeffs deckSize
-    shuffleCoeffs = ModLinCoeffs a b
+    shuffleCoeffs :: forall deckSize. (KnownNat deckSize) => LinCoeffs (ModInteger deckSize)
+    shuffleCoeffs = LinCoeffs a b
      where
       shufFunc = shuffleSingle shuffles
       (a, b) = (shufFunc 1 - b, shufFunc 0)
-    inverseCoeffs = inverseLinCoeffs @119315717514047 shuffleCoeffs
+    inverseCoeffs = invert $ shuffleCoeffs @(119315717514047)
    in
     let ModI res = fastLinearIterate inverseCoeffs 101741582076661 2020 in res
 

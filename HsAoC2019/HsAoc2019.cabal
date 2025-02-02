@@ -81,6 +81,7 @@ library
     , fgl
     , gnuplot
     , graphviz
+    , groups
     , heap
     , hmatrix
     , http-conduit
@@ -125,6 +126,7 @@ executable aoc24-exe
     , fgl
     , gnuplot
     , graphviz
+    , groups
     , heap
     , hmatrix
     , http-conduit
@@ -170,6 +172,7 @@ test-suite HsAoc2019-test
     , fgl
     , gnuplot
     , graphviz
+    , groups
     , heap
     , hmatrix
     , http-conduit
