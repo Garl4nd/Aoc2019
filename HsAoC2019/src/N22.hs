@@ -74,7 +74,7 @@ instance (Field k) => Group (LinCoeffs k) where
     (alpha, beta) = (multInverse a, -(alpha * b))
 
 fastLinearIterate :: (Field k) => LinCoeffs k -> Integer -> (k -> k)
-fastLinearIterate coeffs iter = linFunc $ fastMonoidIter coeffs iter -- fastMonoidIter  is already provided in base: == flip stimes
+fastLinearIterate coeffs iter = linFunc $ fastMonoidIter coeffs iter -- fastMonoidIter  is already provided in base: == flip stimes/stimesMonoid
 
 solution2 :: [ShuffleType] -> Integer
 solution2 shuffles =
@@ -85,8 +85,9 @@ solution2 shuffles =
       shufFunc = shuffleSingle shuffles
       (a, b) = (shufFunc 1 - b, shufFunc 0)
     inverseCoeffs = invert $ shuffleCoeffs @(119315717514047)
+    ModI res = fastLinearIterate inverseCoeffs 101741582076661 2020
    in
-    let ModI res = fastLinearIterate inverseCoeffs 101741582076661 2020 in res
+    res
 
 getSolutions22 = getSolutions parseFile solution1 solution2
 
