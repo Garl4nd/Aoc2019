@@ -3,7 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
-module IntCode (createMachine, runMachine, runCodeWInputST, getMachineResult, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs, runProgramIO, talkToMachine) where
+module IntCode (createMachine, runMachine, runCodeWInputST, getMachineResult, codeParser, Machine (..), MachineState (..), MachineResult (..), mState, getOutputs, runProgramIO, talkToMachine, Code) where
 
 import Control.Monad (forM_, unless, when, (<=<), (>=>))
 import Control.Monad.Ref
@@ -26,7 +26,9 @@ import GHC.IOArray
 import GHC.IORef
 import Useful (splitOn)
 
-codeParser :: String -> [Int]
+type Code = [Int]
+
+codeParser :: String -> Code
 codeParser = map read . splitOn ','
 data MachineState = Running | Halted | WaitingForInput deriving (Eq, Show)
 data Machine a r = Machine
@@ -38,13 +40,13 @@ data Machine a r = Machine
   , mState :: r MachineState
   }
 data MachineResult = MachineResult
-  { finalCode :: [Int]
+  { finalCode :: Code
   , machineOutputs :: [Int]
   , machineState :: MachineState
   }
   deriving (Show)
 
-createMachine :: (MArray a Int m, MonadRef r m) => [Int] -> m (Machine a r)
+createMachine :: (MArray a Int m, MonadRef r m) => Code -> m (Machine a r)
 createMachine code = do
   ar <- newArray (0, 5 * length code - 1) 0
   ptrRef <- newRef 0
@@ -183,7 +185,7 @@ runCodeWInputST input code = runST stCalc
   stCalc :: forall s. ST s MachineResult
   stCalc = runCodeWInput @(STUArray s) input code
 
-runProgramIO :: [Int] -> IO ()
+runProgramIO :: Code -> IO ()
 runProgramIO code = do
   machine <- createMachine @IOArray code
   flip fix [] $ \loop input -> do
@@ -196,7 +198,7 @@ runProgramIO code = do
       let newInput = [read strInput]
       loop newInput
 
-talkToMachine :: [Int] -> String -> IO ()
+talkToMachine :: Code -> String -> IO ()
 talkToMachine code initInput = do
   machine <- createMachine @IOArray code
   flip fix (ord <$> initInput) $ \loop input -> do
@@ -207,4 +209,4 @@ talkToMachine code initInput = do
     unless (state == Halted) $ do
       strInput <- getLine
       let newInput = ord <$> strInput <> "\n"
-      loop newInput  
+      loop newInput

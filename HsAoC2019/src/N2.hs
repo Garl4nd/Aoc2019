@@ -3,8 +3,6 @@ module N2 (getSolutions2) where
 import IntCode
 import Useful (getSolutions)
 
-type Code = [Int]
-
 runCodeWith :: Int -> Int -> Code -> Code
 runCodeWith noun verb (start : _ : _ : rest) = finalCode $ runCodeWInputST [] (start : noun : verb : rest)
 runCodeWith _ _ _ = []
