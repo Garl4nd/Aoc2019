@@ -7,7 +7,7 @@ import Control.Monad (foldM, forM, unless, when, (<=<), (>=>))
 import Data.Array.IO (IOArray)
 import Data.IORef (IORef)
 import Data.IntMap.Lazy ((!))
-import qualified Data.IntMap.Lazy as M
+import qualified Data.IntMap.Strict as M
 import qualified Data.Sequence as S
 import IntCode
 import Useful
@@ -23,38 +23,38 @@ runNetwork code part = do
 runLoop :: [IOMachine] -> Int -> IO GridPos
 runLoop machines part =
   let
-    -- updateQueues :: QueueMap -> Int -> IO (QueueMap, Maybe GridPos, Bool)
-    -- updateQueues queues natPacket machineIdx = do
-    --   let machine = machines !! machineIdx
-    --       currentQueue = queues ! machineIdx
-    --       inputs = if null currentQueue then [-1] else concatMap (\(x, y) -> [x, y]) currentQueue
-    --   outputs <- chunksOf 3 <$> (getOutputs =<< runMachine inputs machine)
-    --   -- unless (null currentQueue && all (== []) outputs) $ print (machineIdx, currentQueue, inputs, outputs)
-    --   let updatedQueues = foldl updateQueue (queues' natPacket)  outputs
-    --       updateQueue (queue, natPacket') input = case input of
-    --         [] -> (queue, natPacket)
-    --         [adress, x, y] -> if adress == 255 then (queue, Just (x,y)) else (M.insertWith (++) adress [(x, y)] queue, natPacket')
-    --       isIdle = all null updatedQueues &&   True
-    --   return (updatedQueues, all null updatedQueues)
+    updateQueues :: QueueMap -> Maybe GridPos -> Int -> IO ((QueueMap, Maybe GridPos), [[Int]])
+    updateQueues queues natPacket machineIdx = do
+      let machine = machines !! machineIdx
+          currentQueue = queues ! machineIdx
+          inputs = if null currentQueue then [-1] else concatMap (\(x, y) -> [x, y]) currentQueue
+          queues' = M.insert machineIdx [] queues 
+      outputs <- chunksOf 3 <$> (getOutputs =<< runMachine inputs machine)
+       -- unless (null currentQueue && all (== []) outputs) $ print (machineIdx, currentQueue, inputs, outputs)
+      let updatedQueues = foldl updateQueue (queues', natPacket)  outputs
+          updateQueue (queue, natPacket') input = case input of
+             [] -> (queue, natPacket)
+             [adress, x, y] -> if adress == 255 then (queue, Just (x,y)) else (M.insertWith (++) adress [(x, y)] queue, natPacket')
+      return (updatedQueues, outputs)
     -- testOutputs :: IO Bool
     -- testOutputs = do
     --   outputs <- mapM (runMachine [-1] >=> getOutputs) machines
     --   if all (== []) outputs then return True else return False
 
     collectOutputs :: QueueMap -> IO [Int]
-    collectOutputs queueMap = fmap concat . forM (zip (M.elems queueMap) machines) $ \(currentQueue, machine) -> do
+    collectOutputs queueMap = fmap concat . forM (zip (M.assocs queueMap) machines) $ \((idx, currentQueue), machine) -> do
+      
       let inputs = if null currentQueue then [-1] else concatMap (\(x, y) -> [x, y]) currentQueue
       runMachine inputs machine >>= getOutputs
     updatePackets :: (QueueMap, Maybe GridPos) -> [Int] -> (QueueMap, Maybe GridPos)
-    updatePackets (queueMap', natPacket') [adress, x, y] = if adress == 255 then (queueMap', Just (x, y)) else (M.insertWith (++) adress [(x, y)] queueMap', natPacket')
+    updatePackets (queueMap', natPacket') [adress, x, y] = if adress == 255 then (queueMap', Just (x, y)) else (M.insertWith (flip (++)) adress [(x, y)] queueMap', natPacket')
 
     loop :: QueueMap -> Maybe GridPos -> Maybe GridPos -> IO GridPos
     loop queueMap natPacket lastSentPacket = do
-      -- print ("QueueMap:", queueMap)
+      states <- mapM (fmap machineState . getMachineResult) machines 
       outputs <- chunksOf 3 <$> collectOutputs queueMap
       let (newQueueMap, newNatPacket) = foldl updatePackets ([] <$ queueMap, natPacket) outputs
           networkIsIdle = all null queueMap && null outputs
-      -- print (lastSentPacket, newNatPacket, natPacket, queueMap, newQueueMap, newNatPacket)
       if
         | part == 1, Just res <- newNatPacket -> return res
         | part == 2, networkIsIdle, Just res@(_, y) <- lastSentPacket, Just (_, y') <- newNatPacket, y == y' -> return res
@@ -62,6 +62,7 @@ runLoop machines part =
         | otherwise -> loop newQueueMap newNatPacket lastSentPacket
    in
     loop (M.fromList $ [(i, []) | i <- [0 .. 49]]) Nothing Nothing
+
 
 getSolutions23 inputFile = do
   code <- codeParser <$> readFile inputFile
