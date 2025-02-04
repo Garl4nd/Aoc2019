@@ -20,6 +20,7 @@ import N20
 import N21
 import N22
 import N23
+import N24
 import N3
 import N4
 import N5
@@ -41,6 +42,9 @@ instance SolutionResult String where
   showRes = id
 instance SolutionResult Distance where
   showRes = show
+instance SolutionResult a => SolutionResult (Maybe a) where 
+  showRes (Just res) =  showRes res 
+  showRes Nothing = "Didn't find a solution!"
 
 maybeSolver :: Int -> Maybe (String -> IO (String, String))
 maybeSolver day = solFunc
@@ -69,7 +73,7 @@ maybeSolver day = solFunc
     21 -> stringize <$> Just getSolutions21
     22 -> stringize <$> Just getSolutions22
     23 -> stringize <$> Just getSolutions23
-    -- 24 -> Just getSolutions24
+    24 -> stringize <$> Just getSolutions24
     -- 25 -> Just getSolutions25
     _ -> Nothing
   stringize :: (SolutionResult a, SolutionResult b) => (String -> IO (a, b)) -> (String -> IO (String, String))
