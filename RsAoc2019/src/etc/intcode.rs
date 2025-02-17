@@ -26,14 +26,41 @@ pub enum InputMode {
     Immediate,
     Relative,
 }
+enum UnaryOp {
+    Input, 
+    Output, 
+    MoveBase 
+}
+enum BinaryOp {
+    JumpIfTrue, 
+    JumpIfFalse
+}
+enum TernaryOp{
+    Add, 
+    Mul, 
+    Less, 
+    Equals
+}
+enum Op{
+    Unary(UnaryOp), Binary (BinaryOp), Ternary (TernaryOp)}
+    
 pub struct IntMachine {
     code: [usize; 1000],
     ptr: usize,
     base: usize,
     state: MachineState,
 }
+fn opcode_to_mode(opcode : usize) -> Op 
+{
+    match opcode{
+        0 => {Op::Ternary (TernaryOp::Add)},
+        1 => {Op::Ternary (TernaryOp::Add)},
+        2 => {Op::Ternary (TernaryOp::Add)},
+        1 => {TernaryOp::Mul}, 
+        2 => {TernaryOp::Less}, 
 
-const TERNARY_OPS : [usize;] = [0];
+    }
+}
 impl IntMachine {
     pub fn new(code: &[usize]) -> Self {
         let mut machine_code = [0; 1000];
