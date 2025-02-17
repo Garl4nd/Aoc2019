@@ -1,4 +1,4 @@
-use crate::{Solution, SolutionPair};
+use crate::{intcode, Solution, SolutionPair};
 use std::fs::read_to_string;
 fn runCode(code: &Vec<i32>, noun: usize, verb: usize) -> Vec<usize> {
     let mut newCode: Vec<usize> = code.iter().map(|&n| n as usize).collect();
@@ -54,6 +54,6 @@ pub fn solve() -> SolutionPair {
 
     let sol1: u64 = solution1(&vec) as u64;
     let sol2: u64 = solution2(&vec) as u64;
-
+    dbg!(intcode::parse_modes_and_opcode(01299));
     (Solution::from(sol1), Solution::from(sol2))
 }
