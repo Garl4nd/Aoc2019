@@ -138,7 +138,9 @@ solution15  code = do
       fillTime =  findMaxDist oxygen walkableMap 
   return (let Dist dist = distMap ! oxygen in dist , fillTime)
 
-getSolutions15 = solution15 . codeParser 
+getSolutions15 filename = do 
+ code <- codeParser <$> readFile filename
+ solution15 code 
 
 mapAndExplore :: [Int] -> IO ()
 mapAndExplore code = do 

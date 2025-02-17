@@ -39,12 +39,23 @@ data Machine a r = Machine
   , outputsRef :: r [Int]
   , mState :: r MachineState
   }
+
 data MachineResult = MachineResult
   { finalCode :: Code
   , machineOutputs :: [Int]
   , machineState :: MachineState
   }
   deriving (Show)
+
+data UnaryInst = Input | Output | MoveBase
+data BinaryInst = JumpTrue | JumpFalse 
+data TernaryInst = Add | Mul | Less | Equals 
+data Inst = Unary UnaryInst | Binary BinaryInst | Ternary TernaryInst  
+-- unaryOps, binaryOps, ternaryOps :: [Int]
+-- ternaryOps = [addC, mulC, lessC, equalsC]
+-- binaryOps = [jumpTC, jumpFC]
+-- unaryOps = [inpC, outC, moveBaseC]
+
 
 createMachine :: (MArray a Int m, MonadRef r m) => Code -> m (Machine a r)
 createMachine code = do
@@ -69,6 +80,18 @@ equalsC = 8
 moveBaseC = 9
 endC = 99
 
+opcodeToOp :: Int -> Inst
+opcodeToOp 1 = Ternary Add 
+opcodeToOp 2 = Ternary Mul
+opcodeToOp 3 = Unary Input
+opcodeToOp 4 = Unary Output 
+opcodeToOp 5 = Binary JumpTrue  
+opcodeToOp 6 = Binary JumpFalse  
+opcodeToOp 7 = Ternary Less  
+opcodeToOp 8 = Ternary Equals 
+opcodeToOp 9 = Unary MoveBase  
+opcodeToOp _ = undefined "Wrong code"
+
 unaryOps, binaryOps, ternaryOps :: [Int]
 ternaryOps = [addC, mulC, lessC, equalsC]
 binaryOps = [jumpTC, jumpFC]
@@ -82,11 +105,11 @@ numToMode 1 = ImmediateMode
 numToMode 2 = RelativeMode
 numToMode _ = error "Undefined mode"
 
-parseModesAndOpCode :: Int -> ([Mode], Int)
+parseModesAndOpCode :: Int -> ((Mode, Mode, Mode), Int)
 parseModesAndOpCode num =
   let (modeDigits, opCode) = num `quotRem` 100
       modes = unfoldr (\n -> if n == 0 then Nothing else Just $ swap $ n `quotRem` 10) modeDigits
-   in (numToMode <$> modes ++ repeat 0, opCode)
+   in (let m1:m2:m3:_ = numToMode <$> modes ++ repeat 0 in (m1,m2,m3), opCode)
 
 runMachine :: (MArray a Int m, MonadRef r m) => [Int] -> Machine a r -> m (Machine a r)
 runMachine inputs machine@Machine{mState, inputsRef, outputsRef} = do
@@ -104,6 +127,17 @@ runMachine inputs machine@Machine{mState, inputsRef, outputsRef} = do
 
       return machine
 
+funcForTernary :: TernaryInst -> (Int -> Int -> Int ) 
+funcForTernary Add = (+)
+funcForTernary Mul = (*)
+funcForTernary Less =   \p1 p2 -> if p1 < p2 then 1 else 0
+funcForTernary Equals = \p1 p2 -> if p1 == p2 then 1 else 0
+
+funcForBinary :: BinaryInst -> (Int -> Int -> Int -> Int )      
+funcForBinary JumpTrue p1 p2 ptr = if p1 == 0 then ptr + 3 else p2
+funcForBinary JumpFalse p1 p2 ptr = if p1 /= 0 then ptr+3 else p2
+
+
 stepMachine :: (MArray a Int m, MonadRef r m) => Machine a r -> m ()
 stepMachine Machine{mCode, ptrRef, baseRef, inputsRef, outputsRef, mState} = do
   ptr <- readRef ptrRef
@@ -116,33 +150,24 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputsRef, outputsRef, mState} = do
   let valGetter mode pos = case mode of
         ImmediateMode -> return pos
         _ -> positionGetter mode pos >>= readArray mCode
-  let op n
-        | n == addC = (+)
-        | n == mulC = (*)
-        | n == lessC = (\p1 p2 -> if p1 < p2 then 1 else 0)
-        | n == equalsC = (\p1 p2 -> if p1 == p2 then 1 else 0)
-        | n == jumpTC = (\p1 p2 -> if p1 /= 0 then p2 else ptr + 3)
-        | n == jumpFC = (\p1 p2 -> if p1 == 0 then p2 else ptr + 3)
-        | otherwise = error "Undefined operator"
   if opCode == endC
     then writeRef mState Halted
     else do
-      let (mode1 : mode2 : mode3 : _) = modes
-      if
-        | opCode `elem` ternaryOps -> do
+      let (mode1, mode2, mode3) = modes
+      case opcodeToOp opCode of 
+        Ternary op -> do
+             inputVal1 <- valGetter mode1 =<< readArray mCode (ptr + 1)
+             inputVal2 <- valGetter mode2 =<< readArray mCode (ptr + 2)
+             outputPos <- positionGetter mode3 =<< readArray mCode (ptr + 3)
+             writeArray mCode outputPos (funcForTernary op inputVal1 inputVal2)
+             modifyRef ptrRef (+ 4)
+        Binary op -> do
             inputVal1 <- valGetter mode1 =<< readArray mCode (ptr + 1)
             inputVal2 <- valGetter mode2 =<< readArray mCode (ptr + 2)
-            outputPos <- positionGetter mode3 =<< readArray mCode (ptr + 3)
-            writeArray mCode outputPos (op opCode inputVal1 inputVal2)
-            modifyRef ptrRef (+ 4)
-        | opCode `elem` binaryOps -> do
-            inputVal1 <- valGetter mode1 =<< readArray mCode (ptr + 1)
-            inputVal2 <- valGetter mode2 =<< readArray mCode (ptr + 2)
-            let newPos = op opCode inputVal1 inputVal2
+            let newPos = funcForBinary op inputVal1 inputVal2 ptr
             writeRef ptrRef newPos
-        | opCode `elem` unaryOps -> do
-            if opCode == inpC
-              then do
+        Unary Input ->  
+                do
                 targetPos <- positionGetter mode1 =<< readArray mCode (ptr + 1)
                 inputLs <- readRef inputsRef
                 case inputLs of
@@ -151,15 +176,12 @@ stepMachine Machine{mCode, ptrRef, baseRef, inputsRef, outputsRef, mState} = do
                     writeArray mCode targetPos currentInput
                     writeRef inputsRef remainingInput
                     modifyRef ptrRef (+ 2)
-              else do
+        Unary op ->  do
                 targetVal <- valGetter mode1 =<< readArray mCode (ptr + 1)
-                if opCode == outC
-                  then modifyRef outputsRef (++ [targetVal])
-                  else
-                    when (opCode == moveBaseC) $
-                      modifyRef baseRef (+ targetVal)
+                case op of
+                  Output ->  modifyRef outputsRef (++ [targetVal])
+                  MoveBase -> modifyRef baseRef (+ targetVal)
                 modifyRef ptrRef (+ 2)
-        | otherwise -> return ()
 
 getOutputs :: (MArray a Int m, MonadRef r m) => Machine a r -> m [Int]
 getOutputs Machine{outputsRef} = readRef outputsRef
