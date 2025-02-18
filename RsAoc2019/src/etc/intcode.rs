@@ -1,24 +1,24 @@
 use std::{collections::VecDeque, fs::read_to_string} ;
 
-pub fn codeParser(filename: &str) -> Vec<usize> {
+pub fn codeParser(filename: &str) -> Vec<i64> {
     let file: String = read_to_string(filename).unwrap().lines().take(1).collect();
     println!("vals = {:?}", file.split(',').collect::<Vec<_>>());
     file.split(',').map(|s| s.parse().unwrap()).collect()
 }
 
 #[derive(PartialEq, Eq)]
-enum MachineState {
+pub enum MachineState {
     Running,
     Halted,
     WaitingForInput,
 }
 #[derive(Debug, Clone)]
-pub enum PosType{
+enum PosType{
     Relative, 
     Absolute
 }
 #[derive(Debug, Clone)]
-pub enum InputMode {
+enum InputMode {
     Immediate,
     Position(PosType)
 }
@@ -41,13 +41,13 @@ enum Inst{
     Unary(UnaryInst), Binary (BinaryInst), Ternary (TernaryInst), Halt}
     
 pub struct IntMachine {
-    pub code: [usize; 1000],
+    pub code: [i64; 1000],
     ptr: usize,
-    base: usize,
+    base: i64,
     pub state: MachineState,
 }
 
-fn opcode_to_inst(opcode : usize) -> Inst 
+fn opcode_to_inst(opcode : i64) -> Inst 
 {
     match opcode{
         1 => {Inst::Ternary (TernaryInst::Add)},
@@ -64,7 +64,7 @@ fn opcode_to_inst(opcode : usize) -> Inst
     }
 }
 impl IntMachine {
-    pub fn new(code: &[usize]) -> Self {
+    pub fn new(code: &[i64]) -> Self {
         let mut machine_code = [0; 1000];
         machine_code[..code.len()].copy_from_slice(code);
 
@@ -76,8 +76,8 @@ impl IntMachine {
         }
     }
 
-    pub fn run_machine(&mut self, inputs: &[usize]) -> Vec<usize> {
-        let mut input_queue = VecDeque::<usize>::from(inputs.to_owned());
+    pub fn run_machine(&mut self, inputs: &[i64]) -> Vec<i64> {
+        let mut input_queue = VecDeque::<i64>::from(inputs.to_owned());
         let mut outputs = Vec::new();
         while self.state == MachineState::Running {
             if let Some(output) = self.step_machine(&mut input_queue) {
@@ -99,14 +99,14 @@ impl IntMachine {
 //   let valGetter mode pos = case mode of
 //         ImmediateMode -> return pos
 //         _ -> positionGetter mode pos >>= readArray mCode/         B
-fn position_getter(&self, position: usize, pos_type: PosType) -> usize 
+fn position_getter(&self, position: i64, pos_type: PosType) -> usize 
     {
         match pos_type{
-            PosType::Absolute => {position},
-            PosType::Relative => {self.base + position}, 
+            PosType::Absolute => {position as usize},
+            PosType::Relative => {(self.base + position) as usize}, 
         }
     }
-fn val_getter (&self, value: usize, mode: InputMode) -> usize
+fn val_getter (&self, value: i64, mode: InputMode) -> i64
     {
         match mode{
             InputMode::Immediate => {value}, 
@@ -119,7 +119,7 @@ fn val_getter (&self, value: usize, mode: InputMode) -> usize
 //              writeArray mCode outputPos (funcForTernary op inputVal1 inputVal2)
 //              modifyRef ptrRef (+ 4)
 
-    fn step_machine(&mut self, input_queue: &mut VecDeque<usize>) -> Option<usize> {
+    fn step_machine(&mut self, input_queue: &mut VecDeque<i64>) -> Option<i64> {
         let ((mode1, mode2, mode3), op_code) = parse_modes_and_opcode(self.code[self.ptr]);
         let mut output = None;
         match opcode_to_inst(op_code) {
@@ -146,28 +146,11 @@ fn val_getter (&self, value: usize, mode: InputMode) -> usize
             let inputVal2 = self.val_getter(self.code[self.ptr + 2], mode2);
             let new_pos = match (binInst)
                 {
-                    BinaryInst::JumpIfTrue => {if inputVal1 >0 {inputVal2} else {self.ptr +3}}
-                    BinaryInst::JumpIfFalse => {if inputVal1 ==0 {inputVal2} else  {self.ptr+3}}
+                    BinaryInst::JumpIfTrue => {if inputVal1 >0 {inputVal2 as usize} else {self.ptr +3}}
+                    BinaryInst::JumpIfFalse => {if inputVal1 ==0 {inputVal2 as usize} else  {self.ptr+3}}
                 };
             self.ptr = new_pos;
- //        Unary Input ->  
- //                let PositionMode posType = mode1
- //                targetPos <- positionGetter posType =<< readArray mCode (ptr + 1)
- //                inputLs <- readRef inputsRef
- //                case inputLs of
- //                  [] -> writeRef mState WaitingForInput
- //                  (currentInput : remainingInput) -> do
- //                    writeArray mCode targetPos currentInput
- //                    writeRef inputsRef remainingInput
- //                    modifyRef ptrRef (+ 2)
- //        Unary op ->  do
- //                targetVal <- valGetter mode1 =<< readArray mCode (ptr + 1)
- //                case op of
- //                  Output ->  modifyRef outputsRef (++ [targetVal])
- //                  MoveBase -> modifyRef baseRef (+ targetVal)
- //                modifyRef ptrRef (+ 2)
- // 
-            },
+           },
             Inst::Unary(UnaryInst::Input) => {
                 if let InputMode::Position(pos_type) = mode1 
                 {
@@ -188,11 +171,11 @@ fn val_getter (&self, value: usize, mode: InputMode) -> usize
                 }
             },
             Inst::Unary(una_inst) => {
-                let target_val = self.val_getter(self.code[self.ptr +1], mode1);
+                let target_val = self.val_getter(self.code[(self.ptr +1) as usize], mode1);
                 match una_inst{
-                UnaryInst::Output => {output = Some(target_val)}
-                UnaryInst::MoveBase => {self.base += target_val}
-                _ => {unreachable!()}
+                    UnaryInst::Output => {output = Some(target_val)}
+                    UnaryInst::MoveBase => {self.base += target_val}
+                    _=> {unreachable!()}
                 };
                 self.ptr += 2;
 
@@ -205,7 +188,7 @@ fn val_getter (&self, value: usize, mode: InputMode) -> usize
     }
 }
 
-pub fn parse_modes_and_opcode(value: usize) -> ((InputMode, InputMode, InputMode), usize) {
+fn parse_modes_and_opcode(value: i64) -> ((InputMode, InputMode, InputMode), i64) {
     let mode_digits = value / 100;
     let op_code = value % 100;
     let mut modes = Vec::new();
@@ -219,7 +202,7 @@ pub fn parse_modes_and_opcode(value: usize) -> ((InputMode, InputMode, InputMode
         op_code,
     )
 }
-fn num_to_mode(num: usize) -> InputMode {
+fn num_to_mode(num: i64) -> InputMode {
     match num {
         0 => InputMode::Position(PosType::Absolute),
         1 => InputMode::Immediate,
@@ -227,10 +210,10 @@ fn num_to_mode(num: usize) -> InputMode {
         _ => panic!("Wrong mode!"),
     }
 }
-pub fn run_code(code: &[usize], input: &[usize]) -> IntMachine
+pub fn run_code(code: &[i64], input: &[i64]) -> (Vec<i64>, IntMachine)
 {
         let mut machine = IntMachine::new(code);
-        machine.run_machine(input);
-        machine
+        let outputs = machine.run_machine(input);
+        (outputs,machine)
     }
 

@@ -26,23 +26,23 @@ use std::fs::read_to_string;
 //     }
 //     newCode
 // }
-fn solution1(code: &Vec<usize>) -> usize {
+fn solution1(code: &Vec<i64>) -> i64 {
     let mut new_code = code.clone();
     new_code[1] = 12;
     new_code[2] = 2;
     //dbg!(runCode(code, 12, 2)[0]);
     let machine = run_code(&new_code, &[]);    
-    machine.code[0]
+    machine.1.code[0]
 }
-fn solution2(code: &Vec<usize>) -> usize {
-    let target: usize = 19690720;
+fn solution2(code: &Vec<i64>) -> i64 {
+    let target = 19690720;
     for noun in (0..=99) {
         for verb in (0..=99) {
             let mut new_code = code.clone();
             new_code[1] = noun;
             new_code[2] = verb;
-            if run_code(&new_code, &[]).code[0] == target {
-                return (100 * noun + verb) as usize;
+            if run_code(&new_code, &[]).1.code[0] == target {
+                return (100 * noun + verb);
             }
         }
     }
