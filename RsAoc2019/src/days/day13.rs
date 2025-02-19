@@ -3,12 +3,12 @@ use itertools::Itertools;
 
 use crate::{
     etc::{
-        gridvec::{self, GridVec},
-        intcode::{codeParser, run_code, IntMachine},
+        gridvec::GridVec,
+        intcode::{codeParser, run_code, IntMachine, MachineState},
     },
     Solution, SolutionPair,
 };
-use std::fs::read_to_string;
+use core::panic;
 
 ///////////////////////////////////////////////////////////////////////////////
 // solution1 :: [Int] -> Int
@@ -33,56 +33,105 @@ fn solution1(code: &[i64]) -> usize {
         .filter(|val| matches!(val, 2))
         .count()
 }
-fn play_game(code: &[i64]) {
-    let (head, tail) = code.split_at(1);
+fn char_to_int(c: char) -> i64
+{
+    c as i64 - 107 
+}
+fn play_game(code: &[i64]) -> i64 {
+    let (_, tail) = code.split_at(1);
     let modified_code = [&[2], tail].concat();
-    let machine = IntMachine::new(&modified_code);
-    let mut game_ar = GridVec::new(' ', 0, 0, 50, 50);
+    let mut machine = IntMachine::new(&modified_code);
+    let mut game_ar = GridVec::new(' ', 0, 0, 33, 50);
     let mut auto_input = 0;
     let mut score = 0;
-    let mut term = Term::stdout();
-    loop {
+    let  term = Term::stdout();
+    while machine.state != MachineState::Halted {
+        let _ = term.clear_screen();
+        println!("{score}");
+        print!("{game_ar}");
         let user_input = term.read_char();
         if let Ok(user_input) = user_input {
-            let input = if user_input == 'a' { auto_input } else { 0 }; // char to ord -107
-                                                                        // conversion
+            let input = if user_input == 'a' { auto_input } else { char_to_int(user_input) }; // char to ord -107
+      if input == -4 { return play_game(code)};
+    if !(-1..=1).contains(&input) {
+                auto_input = 0;
+                continue;
+            }
+            let outputs = machine.run_machine(&[input]);
+            if outputs.is_empty() {auto_input = 0; continue;}
+            type ITriplet = (i64, i64, i64);
+            let out_triplets : Vec<ITriplet> = outputs.into_iter().chunks(3).into_iter().map(|mut it| 
+                (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())).collect();
+            let (res, updates)  = 
+            out_triplets.iter().partition::<Vec<ITriplet>, _>(|(x, y, _)| *x==-1 && *y ==0 );
+
+            let  platform_pos = updates.iter().find_map(|(x,_, piece)| if *piece == 3 {Some(*x)} else {None}).unwrap_or(0); 
+            let  ball_pos  = updates.iter().find_map(|(x,_, piece)| if *piece == 4 {Some(*x)} else {None}).unwrap_or(0); 
+           // let mut ball_pos_it  = updates.iter().filter_map(|(x,_, piece)| if *piece == 4 {Some(*x)} else {None}); 
+            //let ball_pos = if let Some(pos) = ball_pos_it.next() {pos} else {0};
+            if let Some((_, _, new_score)) = res.first(){
+                score = *new_score;
+            }
+                         
+            auto_input = if ball_pos > platform_pos {1} else {-1};
+            for (x, y, id) in updates{
+                game_ar[(y,x)] = obj_id_to_char(id);}
+            
         }
     }
+    println!{"{} Score = {}\n Play again (y/n)?", if game_ar.vec.contains
+    (&'!') {"Game over!"} else {"You won!"}, score};
+    if let Ok('y') = term.read_char() {
+        play_game(code)
+    }
+    else 
+        {score}
+}
+fn play_game_auto(code: &[i64]) -> i64 {
+    let (_, tail) = code.split_at(1);
+    let modified_code = [&[2], tail].concat();
+    let mut machine = IntMachine::new(&modified_code);
+    let mut game_ar = GridVec::new(' ', 0, 0, 33, 50);
+    let mut input = 0;
+    let mut score = 0;
+    while machine.state != MachineState::Halted {
+           let outputs = machine.run_machine(&[input]);
+            if outputs.is_empty() {input = 0; continue;}
+            type ITriplet = (i64, i64, i64);
+            let out_triplets : Vec<ITriplet> = outputs.into_iter().chunks(3).into_iter().map(|mut it| 
+                (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())).collect();
+            let (res, updates)  = 
+            out_triplets.iter().partition::<Vec<ITriplet>,_>(|(x, y, _)| *x==-1 && *y ==0 );
+            let  platform_pos = updates.iter().find_map(|(x,_, piece)| if *piece == 3 {Some(*x)} else {None}).unwrap_or(0); 
+            let  ball_pos  = updates.iter().find_map(|(x,_, piece)| if *piece == 4 {Some(*x)} else {None}).unwrap_or(0); 
+            if let Some((_, _, new_score)) = res.first(){
+                score = *new_score;
+            } input = if ball_pos > platform_pos {1} else {-1};
+            for (x, y, id) in updates{
+                game_ar[(y,x)] = obj_id_to_char(id);}
+            
+        }
+    
+    score
 }
 
-// playGame :: [Int] -> IO ()
-// playGame code = do
-//   machine <- createMachine @IOArray (2 : tail code)
-//   let gameAr = A.listArray ((0, 0), (dim, dim)) [' ' | _ <- [0 .. dim], _ <- [0 .. dim]]
-//
-//   flip fix (gameAr, 0, 0) $ \loop (currentAr, autoInput, score) -> do
-//     userInput <- getChar
-//     let input = if userInput == 'a' then autoInput else subtract 107 . ord $ userInput
-//     when (input == -4) $ playGame code
-//     when (input < -1 || input > 1) $ do
-//       -- putStrLn "Invalid input!"
-//       loop (currentAr, 0, score)
-//     -- print input
-//
-//     outputs <- getOutputs =<< runMachine [input] machine
-//     when (null outputs) $ loop (currentAr, 0, score)
-//     -- print outputs
-//     let (resList, updates) = partition (\[x, y, _] -> x == -1 && y == 0) $ chunksOf 3 outputs
-//     let platformPos = case [x | [x, _, 3] <- updates] of [] -> 0; f : _ -> f
-//         ballPos = case [x | [x, _, 4] <- updates] of [] -> 0; f : _ -> f
-//         updatedScore = case resList of
-//           [] -> score
-//           res : _ -> let [_, _, newScore] = res in newScore
-//     clearScreen
-//     putStrLn $ "score = " <> show updatedScore
-//     let newAr = updateGameAr updates currentAr
-//     putStrLn $ unlines . charGridToStr $ newAr
-//     loop (newAr, if ballPos > platformPos then 1 else -1, updatedScore)
+fn obj_id_to_char(id: i64) -> char 
+{
+    match id {
+
+   0 => {' '},
+   1 => {'x'},
+    2 => {'!'},
+    3 => {'T'},
+    4 => {'O'},
+    _ => panic!("Wrong id")}
+}
 pub fn solve() -> SolutionPair {
     // Your solution here...
     let code = codeParser("input/13.txt");
     let sol1: usize = solution1(&code);
-    let sol2: u64 = 0;
+    play_game(&code);
+    let sol2: i64 = play_game_auto(&code);
 
     (Solution::from(sol1), Solution::from(sol2))
 }
