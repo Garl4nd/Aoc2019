@@ -44,7 +44,7 @@ enum Inst {
 }
 
 pub struct IntMachine {
-    pub code: [i64; 2000],
+    pub code: [i64; 4000],
     ptr: usize,
     base: i64,
     pub state: MachineState,
@@ -67,7 +67,7 @@ fn opcode_to_inst(opcode: i64) -> Inst {
 }
 impl IntMachine {
     pub fn new(code: &[i64]) -> Self {
-        let mut machine_code = [0; 2000];
+        let mut machine_code = [0; 4000];
         machine_code[..code.len()].copy_from_slice(code);
 
         IntMachine {
