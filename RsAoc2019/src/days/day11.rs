@@ -1,9 +1,10 @@
 use itertools::Itertools;
 
 use crate::{
-    etc::gridvec::GridPos,
-    etc::gridvec::GridVec,
-    etc::intcode::{self, codeParser, IntMachine, MachineState},
+    etc::{
+        gridvec::{change_direction, turn, Direction, GridPos, GridVec},
+        intcode::{self, codeParser, IntMachine, MachineState},
+    },
     Solution, SolutionPair,
 };
 use std::{
@@ -11,40 +12,7 @@ use std::{
     fs::read_to_string,
     ops::{Index, IndexMut, RangeBounds},
 };
-enum Direction {
-    U,
-    R,
-    D,
-    L,
-}
 
-fn change_direction(dir: &Direction, turn_code: i64) -> Direction {
-    use Direction::*;
-    if turn_code == 0 {
-        match dir {
-            U => L,
-            D => R,
-            L => D,
-            R => U,
-        }
-    } else {
-        match dir {
-            U => R,
-            D => L,
-            L => U,
-            R => D,
-        }
-    }
-}
-fn turn((y, x): &GridPos, dir: &Direction) -> GridPos {
-    use Direction::*;
-    match *dir {
-        U => (*y - 1, *x),
-        D => (*y + 1, *x),
-        L => (*y, *x - 1),
-        R => (*y, *x + 1),
-    }
-}
 fn paint_ship(init_tile: bool, code: &[i64]) -> (GridVec<bool>, GridVec<bool>) {
     let mut ship_grid = GridVec::<bool>::new(false, -45, -45, 45, 45);
     ship_grid[(0, 0)] = init_tile;
