@@ -215,6 +215,5 @@ fn num_to_mode(num: i64) -> InputMode {
 pub fn run_code(code: &[i64], input: &[i64]) -> (Vec<i64>, IntMachine) {
     let mut machine = IntMachine::new(code);
     let outputs = machine.run_machine(input);
-    dbg!(&outputs, &machine.state);
     (outputs, machine)
 }
