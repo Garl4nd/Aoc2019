@@ -28,7 +28,7 @@ impl<T> GridVec<T> {
     fn in_range(&self, (y, x): &GridPos) -> bool {
         (self.y_min..=self.y_max).contains(y) && (self.x_min..=self.x_max).contains(x)
     }
-    pub fn neighbors4(&self, y: i64, x: i64) -> Vec<GridPos> {
+    pub fn neighbors4(&self, (y, x): GridPos) -> Vec<GridPos> {
         [(y - 1, x), (y, x + 1), (y + 1, x), (y, x - 1)]
             .into_iter()
             .filter(|nei| self.in_range(nei))
