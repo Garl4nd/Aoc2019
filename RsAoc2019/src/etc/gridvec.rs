@@ -3,12 +3,25 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+use itertools::Itertools;
+
 pub struct GridVec<T> {
     pub vec: Vec<T>,
     y_min: i64,
     x_min: i64,
     y_max: i64,
     x_max: i64,
+}
+fn string_to_chargrid(str: &str) -> GridVec<char> {
+    let height = str.lines().count() as i64;
+    let width = str.lines().next().iter().count() as i64;
+    GridVec {
+        vec: str.lines().flat_map(|line| line.chars()).collect(),
+        y_min: 0,
+        x_min: 0,
+        y_max: height - 1,
+        x_max: width - 1,
+    }
 }
 pub type GridPos = (i64, i64);
 impl<T> GridVec<T> {
