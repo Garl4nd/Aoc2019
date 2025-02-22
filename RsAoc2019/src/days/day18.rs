@@ -1,4 +1,5 @@
 use console::Key;
+use itertools::Itertools;
 
 use crate::{
     etc::gridvec::{GridPos, GridVec},
@@ -33,6 +34,7 @@ use std::{fs::read_to_string, io::empty};
 // struct Doors(i32);
 // impl Encode for Keys {
 struct Keys(i32);
+#[derive(Clone)]
 struct Doors(i32);
 trait ListEncoding {
     fn empty() -> Self;
@@ -75,23 +77,47 @@ struct KeyPath {
     door_list: Doors,
 }
 struct Explorer {
-    current_pos: GridPos,
+    pos: GridPos,
     previous_pos: Option<GridPos>,
-    path_length: usize,
     door_list: Doors,
 }
 ///////////////////////////////////////////////////////////////////////////////
-fn key_paths(maze: &GridVec<char>, pos: GridPos) -> Vec<KeyPath> {
+fn key_paths(maze: &GridVec<char>, init_pos: GridPos, init_key: char) -> Vec<KeyPath> {
     let mut explorers = vec![Explorer {
-        current_pos: pos,
+        pos: init_pos,
         previous_pos: None,
-        path_length: 0,
         door_list: Doors::empty(),
     }];
+    let mut found_paths = Vec::<KeyPath>::new();
+    let mut distance: usize = 0;
+
     while !explorers.is_empty() {
-        for explorer in &explorers {
-            let possible_paths = maze.neighbors4(explorer.current_pos);
+        let mut new_explorers = Vec::<Explorer>::new();
+        for explorer in &mut explorers {
+            let symbol = maze[explorer.pos];
+            if symbol.is_ascii_lowercase() && symbol != init_key {
+                found_paths.push(KeyPath {
+                    key: Keys::encode(symbol),
+                    path_length: distance,
+                    door_list: explorer.door_list.clone(),
+                });
+            }
+            if symbol.is_ascii_uppercase() {
+                explorer.door_list.add(symbol);
+            }
+            let neighbors = maze
+                .neighbors4(explorer.pos)
+                .into_iter()
+                .filter(|nei| Some(*nei) != explorer.previous_pos);
+            for neighbor in neighbors {
+                new_explorers.push(Explorer {
+                    pos: neighbor,
+                    previous_pos: Some(explorer.pos),
+                    door_list: explorer.door_list.clone(),
+                });
+            }
         }
+        explorers = new_explorers;
     }
     Vec::new()
 }
