@@ -46,6 +46,7 @@ struct Doors(i32);
 trait ListEncoding {
     fn empty() -> Self;
     fn add(&self, symbol: char) -> Self;
+    fn intersection(&self, other: &Self) -> Self;
     fn encode(symbol: char) -> Self
     where
         Self: Sized,
@@ -62,6 +63,9 @@ impl ListEncoding for Keys {
         let Keys(keys) = self;
         Keys(keys | (1 << (symbol as i32 - offset)))
     }
+    fn intersection(&self, other: &Self) -> Self {
+        Keys(self.0 & other.0)
+    }
 }
 impl ListEncoding for Doors {
     fn empty() -> Doors {
@@ -71,6 +75,9 @@ impl ListEncoding for Doors {
         let offset = 'A' as i32;
         let Doors(doors) = self;
         Doors(doors | (1 << (symbol as i32 - offset)))
+    }
+    fn intersection(&self, other: &Self) -> Self {
+        Doors(self.0 & other.0)
     }
 }
 
@@ -161,64 +168,85 @@ fn shortest_path(maze: &GridVec<char>) -> usize {
     let keypath_map = gen_key_path_map(maze);
     let all_key_chars = keypath_map.keys().filter(|c| **c != '@');
     let all_keys = all_key_chars.fold(Keys::empty(), |keys, c| keys.add(*c));
+    let openable_doors = Doors(all_keys.0);
     dbg!(&keypath_map);
-    let memo_map = HashMap::<(i32, char), usize>::new();
+    struct Context<'a>(&'a HashMap<char, Vec<KeyPath>>, &'a Keys, &'a Doors);
+    let ctx = Context(&keypath_map, &all_keys, &openable_doors);
     fn find_shortest(
-        keypath_map: &HashMap<char, Vec<KeyPath>>,
+        memo: &mut HashMap<(i32, char), usize>,
+        ctx: &Context<'_>,
         current_key: char,
         keys: Keys,
-        keys_dbg: Vec<char>,
-        all_keys: &Keys,
-        memo: &mut HashMap<(i32, char), usize>,
     ) -> usize {
-        // dbg!(&keys, &all_keys);
-        // println!("Visiting {current_key}");
-        // dbg!(&keys, &keys_dbg);
-        // sleep(Duration::from_millis(500));
+        let Context(keypath_map, all_keys, openable_doors) = ctx;
         let map_idx = (keys.0, current_key);
-        if !memo.contains_key(&map_idx) {
-            if keys.0 == all_keys.0 {
-                // println!("Match!");
-                dbg!(&keys_dbg);
-                memo.insert(map_idx, 0);
+        if let Some(dist) = memo.get(&map_idx) {
+            *dist
+        } else {
+            let dist = if keys.0 == all_keys.0 {
+                0
             } else {
                 let key_paths = &keypath_map[&current_key];
                 let walkable_paths = key_paths
                     .iter()
                     .filter(|key_path| {
-                        !keys.contains(key_path.key) && keys.can_open(&key_path.door_list)
+                        !keys.contains(key_path.key)
+                            && keys.can_open(&key_path.door_list.intersection(openable_doors))
                     })
                     .collect_vec();
-                // dbg!(&walkable_paths);
-                let dist = walkable_paths
+                walkable_paths
                     .into_iter()
                     .map(|key_path| {
                         key_path.path_length
                             + find_shortest(
-                                keypath_map,
+                                memo,
+                                ctx,
                                 key_path.key,
                                 keys.add(key_path.key),
-                                concat([keys_dbg.clone(), vec![key_path.key]]),
-                                all_keys,
-                                memo,
+                                //                 concat([keys_dbg.clone(), vec![key_path.key]]),
                             )
                     })
                     .min()
-                    .unwrap_or(2000000000);
-                memo.insert(map_idx, dist);
+                    .unwrap_or(2000000000)
             };
+            memo.insert(map_idx, dist);
+            dist
         }
-        memo[&map_idx]
     }
 
-    find_shortest(
-        &keypath_map,
-        '@',
-        Keys::empty(),
-        Vec::new(),
-        &all_keys,
-        &mut HashMap::new(),
-    )
+    find_shortest(&mut HashMap::new(), &ctx, '@', Keys::empty())
+}
+fn split_maze(maze: &GridVec<char>) -> Vec<GridVec<char>> {
+    let (halfHeight, halfWidth): (i64, i64) =
+        ((maze.height() / 2) as i64, (maze.width() / 2) as i64);
+    let mut mod_pos = Vec::<(i64, i64)>::new();
+    for dy in [-1, 1] {
+        for dx in [-1, 1] {
+            mod_pos.push((halfHeight + dy, halfWidth + dx));
+        }
+    }
+    let mut res = Vec::new();
+    for y_offset in [0, halfHeight + 1] {
+        for x_offset in [0, halfWidth + 1] {
+            let ylb = y_offset as i64;
+            let xlb = x_offset as i64;
+            let yub = (y_offset + halfHeight) as i64 - 1;
+            let xub = (x_offset + halfWidth) as i64 - 1;
+            dbg!(halfHeight, y_offset, x_offset, ylb, xlb, yub, xub);
+            let mut new_grid = GridVec::new(' ', ylb, xlb, yub, xub);
+            for y in ylb..=yub {
+                for x in xlb..=xub {
+                    if mod_pos.contains(&(y, x)) {
+                        new_grid[(y, x)] = '@';
+                    } else {
+                        new_grid[(y, x)] = maze[(y, x)];
+                    }
+                }
+            }
+            res.push(new_grid);
+        }
+    }
+    res
 }
 pub fn solve() -> SolutionPair {
     // Your solution here...
@@ -250,5 +278,9 @@ pub fn solve() -> SolutionPair {
     let init_pos = grid.find('@').unwrap();
     dbg!(key_paths(&grid, init_pos, '@'));
     dbg!(shortest_path(&grid));
+    let subgrids = split_maze(&grid);
+    let dists: usize = subgrids.iter().map(|sg| shortest_path(sg)).sum();
+    dbg!(dists);
+    // println!("{}", &subgrids[1]);
     (Solution::from(sol1), Solution::from(sol2))
 }
