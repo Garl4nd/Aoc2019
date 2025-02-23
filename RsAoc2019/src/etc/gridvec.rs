@@ -1,6 +1,5 @@
 use std::{
-    fmt::Display,
-    ops::{Index, IndexMut},
+    fmt::Display, iter::Enumerate, ops::{Index, IndexMut}
 };
 
 use itertools::Itertools;
@@ -12,9 +11,10 @@ pub struct GridVec<T> {
     y_max: i64,
     x_max: i64,
 }
-fn string_to_chargrid(str: &str) -> GridVec<char> {
+
+pub fn string_to_chargrid(str: &str) -> GridVec<char> {
     let height = str.lines().count() as i64;
-    let width = str.lines().next().iter().count() as i64;
+    let width = str.lines().next().unwrap().chars().count() as i64;
     GridVec {
         vec: str.lines().flat_map(|line| line.chars()).collect(),
         y_min: 0,
@@ -24,12 +24,33 @@ fn string_to_chargrid(str: &str) -> GridVec<char> {
     }
 }
 pub type GridPos = (i64, i64);
+impl<'a, T> IntoIterator for &'a GridVec<T> {
+    type Item = &'a T; 
+    type IntoIter = <&'a Vec<T> as IntoIterator>::IntoIter;// std::vec::IntoIter<Self::Item>;
+   fn into_iter(self) -> Self::IntoIter {
+       let v = &self.vec;
+        (v).into_iter()
+
+   } 
+}
+impl <T: Eq> GridVec<T>{
+pub fn find(&self, key: T ) -> Option<GridPos>
+{
+   let (idx, _) = self.into_iter().
+        enumerate().
+        find(|(_, c)| **c == key)? ; 
+    let y = (idx / self.width()) as i64 + self.y_min;
+    let x = (idx % self.width()) as i64+ self.x_min;
+    Some((y  ,x))
+}
+}
+
 impl<T> GridVec<T> {
-    fn height(&self) -> usize {
+   pub fn height(&self) -> usize {
         (self.y_max - self.y_min + 1) as usize
     }
 
-    fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         (self.x_max - self.x_min + 1) as usize
     }
     fn index1D(&self, (y, x): GridPos) -> usize {
