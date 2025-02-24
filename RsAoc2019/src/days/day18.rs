@@ -18,17 +18,36 @@ struct Keys(i32);
 #[derive(Debug, Clone)]
 struct Doors(i32);
 trait ListEncoding {
+    fn get_enc(&self) -> i32;
+    fn from_enc(enc: i32) -> Self;
     fn empty() -> Self;
     fn add(&self, symbol: char) -> Self;
-    fn intersection(&self, other: &Self) -> Self;
+    fn intersection(&self, other: &Self) -> Self
+    where
+        Self: std::marker::Sized,
+    {
+        Self::from_enc(self.get_enc() & other.get_enc())
+    }
     fn encode(symbol: char) -> Self
     where
         Self: Sized,
     {
         Self::empty().add(symbol)
     }
+    fn contains(&self, c: char) -> bool
+    where
+        Self: std::marker::Sized,
+    {
+        self.get_enc() & Self::encode(c).get_enc() != 0
+    }
 }
 impl ListEncoding for Keys {
+    fn get_enc(&self) -> i32 {
+        self.0
+    }
+    fn from_enc(enc: i32) -> Self {
+        Keys(enc)
+    }
     fn empty() -> Keys {
         Keys(0)
     }
@@ -37,11 +56,14 @@ impl ListEncoding for Keys {
         let Keys(keys) = self;
         Keys(keys | (1 << (symbol as i32 - offset)))
     }
-    fn intersection(&self, other: &Self) -> Self {
-        Keys(self.0 & other.0)
-    }
 }
 impl ListEncoding for Doors {
+    fn get_enc(&self) -> i32 {
+        self.0
+    }
+    fn from_enc(enc: i32) -> Self {
+        Doors(enc)
+    }
     fn empty() -> Doors {
         Doors(0)
     }
@@ -50,15 +72,9 @@ impl ListEncoding for Doors {
         let Doors(doors) = self;
         Doors(doors | (1 << (symbol as i32 - offset)))
     }
-    fn intersection(&self, other: &Self) -> Self {
-        Doors(self.0 & other.0)
-    }
 }
 
 impl Keys {
-    fn contains(&self, key: char) -> bool {
-        self.0 & Self::encode(key).0 != 0
-    }
     fn can_open(&self, Doors(doors): &Doors) -> bool {
         self.0 & doors == *doors
     }
@@ -72,47 +88,44 @@ struct KeyPath {
 }
 ///////////////////////////////////////////////////////////////////////////////
 fn key_paths(maze: &GridVec<char>, init_pos: GridPos, init_key: char) -> Vec<KeyPath> {
-    
- struct Explorer {
-    pos: GridPos,
-    door_list: Doors,
-    dist: usize
-}
-   let mut explorers = vec![Explorer {
+    struct Explorer {
+        pos: GridPos,
+        door_list: Doors,
+        dist: usize,
+    }
+    let mut explorers = vec![Explorer {
         pos: init_pos,
         door_list: Doors::empty(),
-       dist: 0
+        dist: 0,
     }];
     let mut visited_pos = HashSet::<GridPos>::new();
     // let mut found_keys = HashSet::<char>::new();
     let mut found_paths = Vec::<KeyPath>::new();
     // let mut distance: usize = 0;
 
-    while let Some(mut explorer) = explorers.pop(){ 
-            visited_pos.insert(explorer.pos);
-            let symbol = maze[explorer.pos];
-            if symbol.is_ascii_lowercase() && symbol != init_key {
-
-                found_paths.push(KeyPath {
-                    key: symbol,
-                    path_length: explorer.dist,
-                    door_list: explorer.door_list.clone(),
-                });
-            }
-            if symbol.is_ascii_uppercase() {
-                explorer.door_list = explorer.door_list.add(symbol);
-            }
-            let neighbors = maze
-                .neighbors4(explorer.pos)
-                .into_iter()
-                .filter(|nei| maze[*nei] != '#' && !visited_pos.contains(nei));
-            for neighbor in neighbors {
-                explorers.push(Explorer {
-                    pos: neighbor,
-                    door_list: explorer.door_list.clone(),
-                    dist: explorer.dist +1
-                });
-            
+    while let Some(mut explorer) = explorers.pop() {
+        visited_pos.insert(explorer.pos);
+        let symbol = maze[explorer.pos];
+        if symbol.is_ascii_lowercase() && symbol != init_key {
+            found_paths.push(KeyPath {
+                key: symbol,
+                path_length: explorer.dist,
+                door_list: explorer.door_list.clone(),
+            });
+        }
+        if symbol.is_ascii_uppercase() {
+            explorer.door_list = explorer.door_list.add(symbol);
+        }
+        let neighbors = maze
+            .neighbors4(explorer.pos)
+            .into_iter()
+            .filter(|nei| maze[*nei] != '#' && !visited_pos.contains(nei));
+        for neighbor in neighbors {
+            explorers.push(Explorer {
+                pos: neighbor,
+                door_list: explorer.door_list.clone(),
+                dist: explorer.dist + 1,
+            });
         }
         // distance += 1;
     }
@@ -150,21 +163,14 @@ fn shortest_path(maze: &GridVec<char>) -> usize {
                 0
             } else {
                 let key_paths = &keypath_map[&current_key];
-                let walkable_paths = key_paths
-                    .iter()
-                    .filter(|key_path| {
-                        !keys.contains(key_path.key)
-                            && keys.can_open(&key_path.door_list.intersection(openable_doors))
-                    });
+                let walkable_paths = key_paths.iter().filter(|key_path| {
+                    !keys.contains(key_path.key)
+                        && keys.can_open(&key_path.door_list.intersection(openable_doors))
+                });
                 walkable_paths
                     .map(|key_path| {
                         key_path.path_length
-                            + find_shortest(
-                                memo,
-                                ctx,
-                                key_path.key,
-                                keys.add(key_path.key),
-                            )
+                            + find_shortest(memo, ctx, key_path.key, keys.add(key_path.key))
                     })
                     .min()
                     .unwrap_or(2000000000)
@@ -189,7 +195,7 @@ fn split_maze(maze: &GridVec<char>) -> Vec<GridVec<char>> {
     for y_offset in [0, half_height + 1] {
         for x_offset in [0, half_width + 1] {
             let (ylb, xlb) = (y_offset, x_offset);
-            let (yub, xub) = (y_offset + half_height - 1,x_offset + half_width - 1);
+            let (yub, xub) = (y_offset + half_height - 1, x_offset + half_width - 1);
             let mut new_grid = GridVec::new(' ', ylb, xlb, yub, xub);
             for y in ylb..=yub {
                 for x in xlb..=xub {
@@ -209,32 +215,34 @@ fn solution1(maze: &GridVec<char>) -> usize {
     shortest_path(maze)
 }
 fn solution2(maze: &GridVec<char>) -> usize {
-    
     let submazes = split_maze(maze);
     submazes.iter().map(shortest_path).sum()
 }
 
 pub fn solve() -> SolutionPair {
     // Your solution here...
-  let file = read_to_string("input/18.txt").unwrap();
-   let maze = string_to_chargrid(&file);    // println!("{}", &subgrids[1]);
+    let file = read_to_string("input/18.txt").unwrap();
+    let maze = string_to_chargrid(&file); // println!("{}", &subgrids[1]);
     let sol1: usize = solution1(&maze);
     let sol2: usize = solution2(&maze);
     (Solution::from(sol1), Solution::from(sol2))
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn encoding_test() {
+        let key = Keys::encode('f');
+        debug_assert!(key.can_open(&Doors::encode('F')));
+        assert!(!key.can_open(&Doors::encode('Q')));
+    }
+    #[test]
+    fn merge_test() {
+        let key = Keys::encode('f');
+        let merged_key = key.add('q');
 
-#[test]
-fn key_test()
-{  let key = Keys::encode('f');
-    dbg!(
-        assert!(key.can_open(&Doors::encode('F'))),
-        assert!(!key.can_open(&Doors::encode('Q'))),
-    );
-    let merged_key = key.add('q');
-
-    dbg!(
-        assert!(merged_key.can_open(&Doors::encode('F'))),
-        assert!(merged_key.can_open(&Doors::encode('Q'))),
-        assert!(!merged_key.can_open(&Doors::encode('A'))),
-    );
+        assert!(merged_key.can_open(&Doors::encode('F')));
+        assert!(merged_key.can_open(&Doors::encode('Q')));
+        assert!(!merged_key.can_open(&Doors::encode('A')));
+    }
 }
