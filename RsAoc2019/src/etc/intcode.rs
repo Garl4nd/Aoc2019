@@ -1,4 +1,6 @@
-use std::{collections::VecDeque, fs::read_to_string};
+use std::{collections::VecDeque, fs::read_to_string, io::BufRead};
+
+use itertools::Itertools;
 
 pub fn codeParser(filename: &str) -> Vec<i64> {
     let file: String = read_to_string(filename).unwrap().lines().take(1).collect();
@@ -44,7 +46,7 @@ enum Inst {
 }
 
 pub struct IntMachine {
-    pub code: [i64; 4000],
+    pub code: [i64; 5000],
     ptr: usize,
     base: i64,
     pub state: MachineState,
@@ -67,7 +69,7 @@ fn opcode_to_inst(opcode: i64) -> Inst {
 }
 impl IntMachine {
     pub fn new(code: &[i64]) -> Self {
-        let mut machine_code = [0; 4000];
+        let mut machine_code = [0; 5000];
         machine_code[..code.len()].copy_from_slice(code);
 
         IntMachine {
@@ -217,3 +219,37 @@ pub fn run_code(code: &[i64], input: &[i64]) -> (Vec<i64>, IntMachine) {
     let outputs = machine.run_machine(input);
     (outputs, machine)
 }
+pub fn talk_to_machine(code: &[i64], init_input: &str) {
+    let mut machine = IntMachine::new(code);
+    fn str_to_ints(st: &str) -> Vec<i64> {
+        st.chars().map(|c| c as i64).collect()
+    }
+    let mut input = str_to_ints(init_input);
+    let mut buffer = String::with_capacity(2048);
+    let mut stdin = std::io::stdin().lock();
+    while machine.state != MachineState::Halted {
+        let int_outputs = machine.run_machine(&input);
+        let str_outputs: String = int_outputs.iter().fold(String::from(""), |acc, n| {
+            if *n > 255 {
+                format!("{acc}{}", *n)
+            } else {
+                format!("{acc}{}", *n as u8 as char)
+            }
+        });
+        println!("{str_outputs}");
+        let _ = stdin.read_line(&mut buffer);
+        input = str_to_ints(&buffer);
+    }
+}
+// talkToMachine :: Code -> String -> IO ()
+// talkToMachine code initInput = do
+//   machine <- createMachine @IOArray code
+//   flip fix (ord <$> initInput) $ \loop input -> do
+//     intOutput <- getOutputs =<< runMachine input machine
+//     let strOutput = concatMap (\i -> if i < 256 then chr i : "" else show i) intOutput
+//     putStrLn strOutput
+//     state <- machineState <$> getMachineResult machine
+//     unless (state == Halted) $ do
+//       strInput <- getLine
+//       let newInput = ord <$> strInput <> "\n"
+//       loop newInput
